@@ -41,30 +41,30 @@ namespace aris
 				CURRENT = 0x0010,
 			};
 
-            // only used for DIY homing
-            enum class DIYHomingState
-            {
-                READY   = 0,
-                HOMING  = 1,
-                HOMED   = 2,
-                RESTORE = 3
-            };
+			// only used for DIY homing
+			enum class DIYHomingState
+			{
+				READY   = 0,
+				HOMING  = 1,
+				HOMED   = 2,
+				RESTORE = 3
+			};
 
 			struct RawData
 			{
 				std::int32_t target_pos{ 0 }, feedback_pos{ 0 };
 				std::int32_t target_vel{ 0 }, feedback_vel{ 0 };
 				std::int16_t target_cur{ 0 }, feedback_cur{ 0 };
-                std::uint8_t cmd{ IDLE };
+				std::uint8_t cmd{ IDLE };
 				std::uint8_t mode{ POSITION };
-                std::uint16_t statusword{ 0 };
-                std::int32_t feedback_dgi{ 0 };
-                mutable std::int16_t ret{ 0 };
+				std::uint16_t statusword{ 0 };
+				std::int32_t feedback_dgi{ 0 };
+				mutable std::int16_t ret{ 0 };
 
-                inline bool is_home_switch_on()
-                {
-                    return feedback_dgi & 0x00300000 == 0x00200000;
-                };
+				inline bool is_home_switch_on()
+				{
+					return (feedback_dgi & 0x00300000) == 0x00200000;
+				};
 			};
 
 			virtual ~EthercatMotion();
@@ -82,11 +82,11 @@ namespace aris
 			auto setPosOffset(std::int32_t offset)->void;
 			auto posOffset()const->std::int32_t;
 
-            // for DIY homing mode with homing switch
-            auto is_home_with_switch() const -> bool;
-            auto homing_state() -> DIYHomingState&;
-            auto home_start_position() -> std::int32_t&;
-            auto homing_wait_ticks() -> std::int32_t&;
+			// for DIY homing mode with homing switch
+			auto is_home_with_switch() const -> bool;
+			auto homing_state() -> DIYHomingState&;
+			auto home_start_position() -> std::int32_t&;
+			auto homing_wait_ticks() -> std::int32_t&;
 
 		private:
 			class Imp;

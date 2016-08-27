@@ -422,7 +422,7 @@ namespace aris
             {
                 if (hm_with_sw) {
                     imp_->is_home_with_switch_ = true;
-                    printf("Motor %d's home mode has been set to home with switch (DIY mode)", imp_->phy_id_);
+                    printf("Motor %d's home mode has been set to home with switch (DIY mode)\n", imp_->phy_id_);
                 }
             }
 

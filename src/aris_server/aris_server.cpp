@@ -418,7 +418,7 @@ namespace aris
 			auto sendParam(const std::string &cmd, const std::map<std::string, std::string> &params)->void;
 
 			static auto tg(aris::control::EthercatController::Data &data)->int;
-            auto emit_data(aris::control::EthercatController::Data &data)->void;
+			auto emit_data(aris::control::EthercatController::Data &data)->void;
 			auto run(GaitParamBase &param, aris::control::EthercatController::Data &data)->int;
 			auto execute_cmd(int count, char *cmd, aris::control::EthercatController::Data &data)->int;
 			auto enable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
@@ -436,7 +436,8 @@ namespace aris
 				HOME,
 				RUN_GAIT,
 				FAKE_HOME,
-                ZERO_FORCE,
+				ZERO_FORCE,
+				HOME_WITH_SWITCH,
 
 				ROBOT_CMD_COUNT
 			};
@@ -445,7 +446,7 @@ namespace aris
 			std::atomic_bool is_running_{false};
 			
 			ControlServer *server_;
-            long total_count = 0;
+			long total_count = 0;
 
 			// 实时循环中的步态参数 //
 			enum { CMD_POOL_SIZE = 50 };
@@ -488,13 +489,20 @@ namespace aris
 				msg.copyStruct(param);
 			} };
 
-            ParseFunc parse_zeroing_force_{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
+			ParseFunc parse_zeroing_force_{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
 			{
 				BasicFunctionParam param;
 				param.cmd_type = Imp::RobotCmdID::ZERO_FORCE;
 				msg.copyStruct(param);
 			} };
 
+			ParseFunc parse_home_with_switch_func_{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
+			{
+				BasicFunctionParam param;
+				param.cmd_type = Imp::RobotCmdID::HOME_WITH_SWITCH;
+				std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
+				msg.copyStruct(param);
+			} };
 			// socket //
 			aris::core::Socket server_socket_;
 			std::string server_socket_ip_, server_socket_port_;
@@ -549,15 +557,15 @@ namespace aris
 				throw std::runtime_error("invalid xml file, no valid UDP node found");
 			}
 #endif
-            auto log_ele = doc.RootElement()->FirstChildElement("nolog");
-            if(!log_ele)
-            {
-                controller_->isLog=true;
-            }
-            else
-            {
-                controller_->isLog=false;
-            }
+			auto log_ele = doc.RootElement()->FirstChildElement("nolog");
+			if(!log_ele)
+			{
+				controller_->isLog=true;
+			}
+			else
+			{
+				controller_->isLog=false;
+			}
 
 
 			/*begin to insert cmd nodes*/
@@ -625,6 +633,11 @@ namespace aris
 			else if (cmd_name == "fake_home")
 			{
 				if (gait_func)throw std::runtime_error("you can not set plan_func for \"fake_home\" command");
+				this->parse_home_func_ = parse_func;
+			}
+			else if (cmd_name == "home_with_switch")
+			{
+				if (gait_func)throw std::runtime_error("you can not set plan_func for \"home_with_switch\" command");
 				this->parse_home_func_ = parse_func;
 			}
 			else
@@ -907,12 +920,18 @@ namespace aris
 				if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for fake_home");
 				reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::FAKE_HOME;
 			}
-            else if (cmd == "zo")
-            {
+			else if (cmd == "hmsw")
+			{
+				parse_home_with_switch_func_(cmd, params, cmd_msg);
+				if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for home_with_switch");
+				reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::HOME_WITH_SWITCH;
+			}
+			else if (cmd == "zo")
+			{
 				parse_zeroing_force_(cmd, params, cmd_msg);
 				if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for zero_force");
 				reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::ZERO_FORCE;
-            }
+			}
 			else
 			{
 				auto cmdPair = this->cmd_id_map_.find(cmd);
@@ -942,7 +961,7 @@ namespace aris
 		auto ControlServer::Imp::tg(aris::control::EthercatController::Data &data)->int
 		{
 			static ControlServer::Imp *imp = ControlServer::instance().imp.get();
-            imp->total_count++;
+			imp->total_count++;
 
 			// 检查是否出错 //
 			static int fault_count = 0;
@@ -972,11 +991,11 @@ namespace aris
 				fault_count = 0;
 			}
             
-            // reset the command for force sensors
-            for (std::size_t i = 0; i < data.force_sensor_data->size(); i++)
-            {
-                data.force_sensor_data->at(i).isZeroingRequested = false;
-            }
+			// reset the command for force sensors
+			for (std::size_t i = 0; i < data.force_sensor_data->size(); i++)
+			{
+				data.force_sensor_data->at(i).isZeroingRequested = false;
+			}
 
 			// 查看是否有新cmd //
 			if (data.msg_recv)
@@ -1007,50 +1026,50 @@ namespace aris
 					if (++imp->count_ % 1000 == 0)rt_printf("execute cmd in count: %d\n", imp->count_);
 				}
 			}
-            // emit data
-            imp->emit_data(data);
+			// emit data
+			imp->emit_data(data);
 
 			return 0;
 		}
-        auto ControlServer::Imp::emit_data(aris::control::EthercatController::Data &data)->void
-        {
-            static ControlServer::Imp *imp = ControlServer::instance().imp.get();
+		auto ControlServer::Imp::emit_data(aris::control::EthercatController::Data &data)->void
+		{
+			static ControlServer::Imp *imp = ControlServer::instance().imp.get();
 #ifdef UNIX
-            /*
-             * Add a pipe to log data, log data will send out side through udp.
-            */
-            this->controller_->data_emitter_data_.timecount = imp->total_count;
+			/*
+			 * Add a pipe to log data, log data will send out side through udp.
+			 */
+			this->controller_->data_emitter_data_.timecount = imp->total_count;
 
-            aris::sensor::SensorData<aris::sensor::ImuData> imuDataProtected;
-            if (imu_)
-            {
-                imuDataProtected = imu_->getSensorData();
-//                this->controller_->data_emitter_data_.imu_data = imuDataProtected.get();
-                this->controller_->data_emitter_data_.imu_data.yaw=(float)imuDataProtected.get().yaw;
-                this->controller_->data_emitter_data_.imu_data.pitch=(float)imuDataProtected.get().pitch;
-                this->controller_->data_emitter_data_.imu_data.roll=(float)imuDataProtected.get().roll;
+			aris::sensor::SensorData<aris::sensor::ImuData> imuDataProtected;
+			if (imu_)
+			{
+				imuDataProtected = imu_->getSensorData();
+				//                this->controller_->data_emitter_data_.imu_data = imuDataProtected.get();
+				this->controller_->data_emitter_data_.imu_data.yaw=(float)imuDataProtected.get().yaw;
+				this->controller_->data_emitter_data_.imu_data.pitch=(float)imuDataProtected.get().pitch;
+				this->controller_->data_emitter_data_.imu_data.roll=(float)imuDataProtected.get().roll;
 
-            }
+			}
 
-            for(int i=0;i<data.force_sensor_data->size();i++)
-            {
-                this->controller_->data_emitter_data_.force_data.at(i).Fx=(float)data.force_sensor_data->at(i).Fx;
-                this->controller_->data_emitter_data_.force_data.at(i).Fy=(float)data.force_sensor_data->at(i).Fy;
-                this->controller_->data_emitter_data_.force_data.at(i).Fz=(float)data.force_sensor_data->at(i).Fz;
+			for(int i=0;i<data.force_sensor_data->size();i++)
+			{
+				this->controller_->data_emitter_data_.force_data.at(i).Fx=(float)data.force_sensor_data->at(i).Fx;
+				this->controller_->data_emitter_data_.force_data.at(i).Fy=(float)data.force_sensor_data->at(i).Fy;
+				this->controller_->data_emitter_data_.force_data.at(i).Fz=(float)data.force_sensor_data->at(i).Fz;
 
-                this->controller_->data_emitter_data_.force_data.at(i).Mx=(float)data.force_sensor_data->at(i).Mx;
-                this->controller_->data_emitter_data_.force_data.at(i).My=(float)data.force_sensor_data->at(i).My;
-                this->controller_->data_emitter_data_.force_data.at(i).Mz=(float)data.force_sensor_data->at(i).Mz;
-            }
-            for(int i=0;i<data.motion_raw_data->size();i++)
-            {
-                this->controller_->data_emitter_data_.motor_data.at(i)=data.motion_raw_data->at(i);
-            }
+				this->controller_->data_emitter_data_.force_data.at(i).Mx=(float)data.force_sensor_data->at(i).Mx;
+				this->controller_->data_emitter_data_.force_data.at(i).My=(float)data.force_sensor_data->at(i).My;
+				this->controller_->data_emitter_data_.force_data.at(i).Mz=(float)data.force_sensor_data->at(i).Mz;
+			}
+			for(int i=0;i<data.motion_raw_data->size();i++)
+			{
+				this->controller_->data_emitter_data_.motor_data.at(i)=data.motion_raw_data->at(i);
+			}
 
-            this->controller_->system_data_emitter.dataEmitterPipe().sendToNrt(this->controller_->data_emitter_data_);
+			this->controller_->system_data_emitter.dataEmitterPipe().sendToNrt(this->controller_->data_emitter_data_);
 #endif
 
-        };
+		};
 
 		auto ControlServer::Imp::execute_cmd(int count, char *cmd_param, aris::control::EthercatController::Data &data)->int
 		{
@@ -1072,8 +1091,11 @@ namespace aris
 			case FAKE_HOME:
 				ret = fake_home(static_cast<BasicFunctionParam &>(*param), data);
 				break;
-            case ZERO_FORCE:
+			case ZERO_FORCE:
 				ret = zero_force(static_cast<BasicFunctionParam &>(*param), data);
+				break;
+			case HOME_WITH_SWITCH:
+				ret = home_with_hmswitch(static_cast<BasicFunctionParam &>(*param), data);
 				break;
 			case RUN_GAIT:
 				ret = run(static_cast<GaitParamBase &>(*param), data);
@@ -1191,82 +1213,86 @@ namespace aris
 			return is_all_homed ? 0 : 1;
 		};
         
-        auto ControlServer::Imp::home_with_hmswitch(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
-        {
-            using control::EthercatMotion;
-            bool is_all_homed = true;
+		auto ControlServer::Imp::home_with_hmswitch(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
+		{
+			using control::EthercatMotion;
+			bool is_all_homed = true;
 
-            for (std::size_t i = 0; i < controller_->motionNum(); ++i)
-            {
-                if (param.active_motor[i] && controller_->motionAtAbs(i).is_home_with_switch())
-                {
-                    if (param.count == 0)
-                    {
-                        rt_printf("Motor %d DIY homing started\n", i);
-                        controller_->motionAtAbs(i).setPosOffset(0);
-                        controller_->motionAtAbs(i).homing_state() = EthercatMotion::DIYHomingState::HOMING;
+			for (std::size_t i = 0; i < controller_->motionNum(); ++i)
+			{
+				if (param.active_motor[i] && controller_->motionAtAbs(i).is_home_with_switch())
+				{
+					if (param.count == 0)
+					{
+						rt_printf("Motor %d DIY homing started\n", i);
+						controller_->motionAtAbs(i).homing_state() = EthercatMotion::DIYHomingState::HOMING;
 
-                        controller_->motionAtAbs(i).home_start_position() =
-                            data.motion_raw_data->operator[](i).feedback_pos;
+						controller_->motionAtAbs(i).home_start_position() =
+							data.motion_raw_data->operator[](i).feedback_pos;
 
-                        data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::RUN;
-                        data.motion_raw_data->operator[](i).target_pos = 
-                            controller_->motionAtAbs(i).home_start_position();
+						data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::RUN;
+						data.motion_raw_data->operator[](i).target_pos = 
+							controller_->motionAtAbs(i).home_start_position();
 
-                        is_all_homed = false;
-                    }
-                    else if (controller_->motionAtAbs(i).homing_state() == EthercatMotion::DIYHomingState::HOMING)
-                    {
-                        data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::RUN;
-                        data.motion_raw_data->operator[](i).target_pos = 
-                            controller_->motionAtAbs(i).home_start_position() + param.count * 5;
-                        
-                        is_all_homed = false;
+						is_all_homed = false;
+					}
+					else if (controller_->motionAtAbs(i).homing_state() == EthercatMotion::DIYHomingState::HOMING)
+					{
+						data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::RUN;
+						data.motion_raw_data->operator[](i).target_pos = 
+							controller_->motionAtAbs(i).home_start_position() + param.count * 5;
 
-                        if (data.motion_raw_data->operator[](i).is_home_switch_on())
-                        {
-                            controller_->motionAtAbs(i).homing_state() = EthercatMotion::DIYHomingState::HOMED;
-                            controller_->motionAtAbs(i).homing_wait_ticks() = 20;
-                            rt_printf("Motor %d DIY home switch is on\n", i);
-                        }
-                    }
-                    else if (controller_->motionAtAbs(i).homing_state() == EthercatMotion::DIYHomingState::HOMED)
-                    {
-                        data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::DISABLE;
-                        controller_->motionAtAbs(i).homing_wait_ticks() --;
+						is_all_homed = false;
+						
+						if (param.count % 200 == 0){
+							rt_printf("dgi: %d\n", data.motion_raw_data->operator[](i).feedback_dgi);
+							rt_printf("pos: %d\n", data.motion_raw_data->operator[](i).feedback_pos);
+						}
 
-                        if (controller_->motionAtAbs(i).homing_wait_ticks() <= 0)
-                        {
-                            // we assume after 20 cycles the motor should have been disabled
-                            controller_->motionAtAbs(i).homing_state() = EthercatMotion::DIYHomingState::RESTORE;
+						if (data.motion_raw_data->operator[](i).is_home_switch_on())
+						{
+							controller_->motionAtAbs(i).homing_state() = EthercatMotion::DIYHomingState::HOMED;
+							controller_->motionAtAbs(i).homing_wait_ticks() = 30;
+							rt_printf("Motor %d DIY home switch is on\n", i);
+						}
+					}
+					else if (controller_->motionAtAbs(i).homing_state() == EthercatMotion::DIYHomingState::HOMED)
+					{
+						data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::DISABLE;
+						controller_->motionAtAbs(i).homing_wait_ticks() --;
 
-                            controller_->motionAtAbs(i).setPosOffset(
-                                    static_cast<std::int32_t>(controller_->motionAtAbs(i).posOffset() +
-                                        model_->motionPool().at(i).motPos()*controller_->motionAtAbs(i).pos2countRatio()
-                                        - data.motion_raw_data->at(i).feedback_pos
-                                        ));
-                            controller_->motionAtAbs(i).homing_wait_ticks() = 1;
-                        }
-                        is_all_homed = false;
-                    }
-                    else if (controller_->motionAtAbs(i).homing_state() == EthercatMotion::DIYHomingState::RESTORE)
-                    {
-                        if (controller_->motionAtAbs(i).homing_wait_ticks() == 1)
-                        {
-                            controller_->motionAtAbs(i).home_start_position() =
-                                data.motion_raw_data->operator[](i).feedback_pos;
+						if (controller_->motionAtAbs(i).homing_wait_ticks() <= 0)
+						{
+							// we assume after 30 cycles the motor should have been disabled
+							controller_->motionAtAbs(i).homing_state() = EthercatMotion::DIYHomingState::RESTORE;
 
-                            controller_->motionAtAbs(i).homing_wait_ticks() --;
-                        }
-                        data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::RUN;
-                        data.motion_raw_data->operator[](i).target_pos = 
-                            controller_->motionAtAbs(i).home_start_position();
-                    }
-                }
-            }
+							controller_->motionAtAbs(i).setPosOffset(
+									static_cast<std::int32_t>(controller_->motionAtAbs(i).posOffset() +
+										model_->motionPool().at(i).motPos()*controller_->motionAtAbs(i).pos2countRatio()
+										- data.motion_raw_data->at(i).feedback_pos
+										));
+							controller_->motionAtAbs(i).homing_wait_ticks() = 40;
+						}
+						is_all_homed = false;
+					}
+					else if (controller_->motionAtAbs(i).homing_state() == EthercatMotion::DIYHomingState::RESTORE)
+					{
+						controller_->motionAtAbs(i).homing_wait_ticks() --;
+						data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::ENABLE;
+						if (controller_->motionAtAbs(i).homing_wait_ticks() != 0)
+						{
+							is_all_homed = false;
+						}
+						else
+						{
+							rt_printf("Motor %d home finished, offset now is %d\n", i, data.motion_raw_data->at(i).feedback_pos);
+						}
+					}
+				}
+			}
 
-            return is_all_homed ? 0 : 1;
-        };
+			return is_all_homed ? 0 : 1;
+		};
 
 		auto ControlServer::Imp::fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
 		{
