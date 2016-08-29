@@ -1240,7 +1240,7 @@ namespace aris
 					{
 						data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::RUN;
 						data.motion_raw_data->operator[](i).target_pos = 
-							controller_->motionAtAbs(i).home_start_position() + param.count * 5;
+                            controller_->motionAtAbs(i).home_start_position() - param.count * 20;
 
 						is_all_homed = false;
 						
@@ -1268,7 +1268,7 @@ namespace aris
 
 							controller_->motionAtAbs(i).setPosOffset(
 									static_cast<std::int32_t>(controller_->motionAtAbs(i).posOffset() +
-										model_->motionPool().at(i).motPos()*controller_->motionAtAbs(i).pos2countRatio()
+                                        controller_->motionAtAbs(i).home_count()
 										- data.motion_raw_data->at(i).feedback_pos
 										));
 							controller_->motionAtAbs(i).homing_wait_ticks() = 40;

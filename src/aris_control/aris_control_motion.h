@@ -63,7 +63,7 @@ namespace aris
 
 				inline bool is_home_switch_on()
 				{
-					return (feedback_dgi & 0x00300000) == 0x00200000;
+                    return (feedback_dgi & 0x04) == 0x04;
 				};
 			};
 
@@ -76,7 +76,7 @@ namespace aris
 			auto phyID()->std::int32_t;
 			auto maxPosCount()->std::int32_t;
 			auto minPosCount()->std::int32_t;
-
+            auto home_count() -> std::int32_t;
 			auto maxVelCount()->std::int32_t;
 			auto pos2countRatio()->std::int32_t;
 			auto setPosOffset(std::int32_t offset)->void;

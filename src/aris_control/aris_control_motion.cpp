@@ -482,6 +482,7 @@ namespace aris
 		}
 		auto EthercatMotion::absID()->std::int32_t { return imp_->abs_id_; };
 		auto EthercatMotion::phyID()->std::int32_t { return imp_->phy_id_; };
+        auto EthercatMotion::home_count()->std::int32_t {return imp_->home_count_;};
 		auto EthercatMotion::maxPosCount()->std::int32_t { return imp_->max_pos_count_; };
 		auto EthercatMotion::minPosCount()->std::int32_t { return imp_->min_pos_count_; };
 		auto EthercatMotion::maxVelCount()->std::int32_t { return imp_->max_vel_count_; };
