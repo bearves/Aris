@@ -279,6 +279,17 @@ namespace aris
 				{
 					std::int32_t current_pos = this->pos();
 					std::int32_t desired_vel = static_cast<std::int32_t>((this->Kp_)*(pos - current_pos));
+
+                    // prevent sudden jumping 
+                    if (fabs((double)desired_vel) > 2.0 * fabs((double)max_vel_count_) ||
+                        fabs((double)(pos - current_pos)) > fabs((double)max_vel_count_ * 2.0 / 1000.0))
+                    {
+                        rt_printf("Motor abs_id %d is encountering a sudden jumping, \
+                                check your EtherCAT networking or planning program\n \
+                                command pos: %d, current_pos: %d\n",
+                                this->abs_id_, pos, current_pos);
+                        return -1;
+                    }
 					
 					/*保护上下限*/
 					desired_vel = std::max(desired_vel, -max_vel_count_);
@@ -744,7 +755,7 @@ namespace aris
                         printf("Error in recvInNrt\n");
                     }
                     
-                    if (count % 50 == 0) // We send data report to client at 20Hz
+                    if (count % 10 == 0) // We send data report to client at 20Hz
                     {
                         ret=this->system_data_emitter.sendto_udp(&data_emitted,sizeof(data_emitted));
                         if(ret<0)
@@ -753,9 +764,8 @@ namespace aris
                         }
                     }
 
-
                     if (isLog && count % 2 == 0)
-                    { // We record data to file at 500Hz
+                    { // We record data to file at 100Hz
                         file.write((char*)&data_emitted, sizeof(data_emitted));
                     }
 #endif
