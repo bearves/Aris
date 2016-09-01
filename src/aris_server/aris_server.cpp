@@ -965,7 +965,10 @@ namespace aris
 
 			// 检查是否出错 //
 			static int fault_count = 0;
-			auto error_motor = std::find_if(data.motion_raw_data->begin(), data.motion_raw_data->end(), [](const aris::control::EthercatMotion::RawData &data) {return data.ret < 0; });
+			auto error_motor = std::find_if(
+                    data.motion_raw_data->begin(), 
+                    data.motion_raw_data->end(), 
+                    [](const aris::control::EthercatMotion::RawData &data) {return data.ret < 0; });
 			if (error_motor != data.motion_raw_data->end())
 			{
 				if (fault_count++ % 1000 == 0)
@@ -1066,7 +1069,10 @@ namespace aris
 				this->controller_->data_emitter_data_.motor_data.at(i)=data.motion_raw_data->at(i);
 			}
 
-			this->controller_->system_data_emitter.dataEmitterPipe().sendToNrt(this->controller_->data_emitter_data_);
+            if (imp->total_count % 5) // log at 200Hz at most
+            {
+                this->controller_->system_data_emitter.dataEmitterPipe().sendToNrt(this->controller_->data_emitter_data_);
+            }
 #endif
 
 		};
