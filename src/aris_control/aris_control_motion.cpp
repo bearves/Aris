@@ -281,12 +281,12 @@ namespace aris
 					std::int32_t desired_vel = static_cast<std::int32_t>((this->Kp_)*(pos - current_pos));
 
                     // prevent sudden jumping 
-                    if (fabs((double)desired_vel) > 2.0 * fabs((double)max_vel_count_) ||
-                        fabs((double)(pos - current_pos)) > fabs((double)max_vel_count_ * 2.0 / 1000.0))
-                    {
+                     if (fabs((double)desired_vel) > 20.0 * fabs((double)max_vel_count_) ||
+                        fabs((double)(pos - current_pos)) > fabs((double)max_vel_count_ * 20.0 / 1000.0))
+                     {
                         rt_printf("Motor abs_id %d is encountering a sudden jumping, \
-                                check your EtherCAT networking or planning program\n \
-                                command pos: %d, current_pos: %d\n",
+                              check your EtherCAT networking or planning program\n \
+                              command pos: %d, current_pos: %d\n",
                                 this->abs_id_, pos, current_pos);
                         return -1;
                     }
@@ -725,6 +725,7 @@ namespace aris
 			imp_->is_stopping_ = false;
 
 			/*begin thread which will save data*/
+            printf("Log thread starting\n");
 			if(!imp_->record_thread_.joinable())
 			imp_->record_thread_ = std::thread([this]()
 			{
@@ -775,6 +776,7 @@ namespace aris
                 file.close();
 
 			});
+            rt_printf("Log thread started\n");
 			
 			this->EthercatMaster::start();
 		}

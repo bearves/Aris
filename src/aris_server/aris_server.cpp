@@ -659,12 +659,18 @@ namespace aris
 		};
 		auto ControlServer::Imp::start()->void
 		{
+            printf("starting server\n");
 			if (!is_running_)
 			{
                 total_count = 0;
 				is_running_ = true;
 				motion_pos_.resize(controller_->motionNum());
-				if (imu_)imu_->start();
+
+				if (imu_){
+                    printf("starting IMU\n");
+                    imu_->start();
+                }
+                printf("starting controller\n");
 				controller_->start();
 			}
 		}
@@ -688,6 +694,7 @@ namespace aris
 				
 				if (cmd == "start")
 				{
+                    printf("Start cmd received\n");
 					if (is_running_)throw std::runtime_error("server already started, thus ignore command \"start\"");
 					start();
 					return aris::core::Msg();
