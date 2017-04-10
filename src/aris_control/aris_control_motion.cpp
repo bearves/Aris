@@ -45,7 +45,7 @@ namespace aris
 				if (motorState == 0x0000)
 				{
 					/*state is POWERED_OFF, now set it to STOPPED*/
-					pFather->writePdo(ElmoGuitarPDOS::controlword_index, ElmoGuitarPDOS::controlword_subindex, static_cast<std::uint16_t>(0x06));
+					pFather->writePdo(ElmoGuitarPDOS::controlWord_index, ElmoGuitarPDOS::controlWord_subindex, static_cast<std::uint16_t>(0x06));
 					return 1;
 				}
 				else if (motorState == 0x0001)

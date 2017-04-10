@@ -36,6 +36,7 @@ install_manifest.txt
 *.lib
 
 # Executables
+build
 *.exe
 *.out
 *.app
