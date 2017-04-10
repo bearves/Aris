@@ -15,6 +15,7 @@
 #include <map>
 #include <fstream>
 #include <algorithm>
+#include "PDOIndexDefinition.h"
 
 #include "aris_control_motion.h"
 
@@ -34,42 +35,42 @@ namespace aris
 				is_fake = false;				
 
 				std::uint16_t statusWord;
-				pFather->readPdo(1, 3, statusWord);
+				pFather->readPdo(ElmoGuitarPDOS::statusWord_index, ElmoGuitarPDOS::statusword_subindex, statusWord);
 
 				std::uint8_t modeRead;
-				pFather->readPdo(4, 0, modeRead);
+				pFather->readPdo(ElmoGuitarPDOS::modeOfOperationDisplay_index, ElmoGuitarPDOS::modeOfOperationDisplay_subindex, modeRead);
 
 				int motorState = (statusWord & 0x000F);
 
 				if (motorState == 0x0000)
 				{
 					/*state is POWERED_OFF, now set it to STOPPED*/
-					pFather->writePdo(0, 4, static_cast<std::uint16_t>(0x06));
+					pFather->writePdo(ElmoGuitarPDOS::controlword_index, ElmoGuitarPDOS::controlword_subindex, static_cast<std::uint16_t>(0x06));
 					return 1;
 				}
 				else if (motorState == 0x0001)
 				{
 					/*state is STOPPED, now set it to ENABLED*/
-					pFather->writePdo(0, 4, static_cast<std::uint16_t>(0x07));
+					pFather->writePdo(ElmoGuitarPDOS::controlWord_index, ElmoGuitarPDOS::controlWord_subindex, static_cast<std::uint16_t>(0x07));
 					return 1;
 				}
 				else if (motorState == 0x0003)
 				{
 					/*state is ENABLED, now set it to RUNNING*/
-					pFather->writePdo(0, 4, static_cast<std::uint16_t>(0x0F));
+					pFather->writePdo(ElmoGuitarPDOS::controlWord_index, ElmoGuitarPDOS::controlWord_subindex, static_cast<std::uint16_t>(0x0F));
 					return 1;
 				}
 				else if ((mode == POSITION) && (modeRead != VELOCITY))
 				{
 					/*state is RUNNING, now to set desired mode*/
 					/*desired mode is POSITION, but we need to use our own velocity loop*/
-					pFather->writePdo(0, 5, static_cast<std::uint8_t>(VELOCITY));
+					pFather->writePdo(ElmoGuitarPDOS::modeOfOperation_index, ElmoGuitarPDOS::modeOfOperation_subindex, static_cast<std::uint8_t>(VELOCITY));
 					return 1;
 				}
 				else if ((mode != POSITION) && (modeRead != mode))
 				{
 					/*state is RUNNING, now change it to desired mode*/
-					pFather->writePdo(0, 5, static_cast<std::uint8_t>(mode));
+					pFather->writePdo(ElmoGuitarPDOS::modeOfOperation_index, ElmoGuitarPDOS::modeOfOperation_subindex, static_cast<std::uint8_t>(mode));
 					return 1;
 				}
 				else if (motorState == 0x0007)
@@ -80,11 +81,11 @@ namespace aris
 					case POSITION:
 					case VELOCITY:
 						/*velocity loop to set velocity of 0*/
-						pFather->writePdo(0, 1, static_cast<std::int32_t>(0));
+						pFather->writePdo(ElmoGuitarPDOS::targetVelocity_index, ElmoGuitarPDOS::targetVelocity_subindex, static_cast<std::int32_t>(0));
 						break;
 					case CURRENT:
-						pFather->writePdo(0, 2, static_cast<std::int16_t>(0));
-						pFather->writePdo(0, 3, static_cast<std::int16_t>(1500));
+						pFather->writePdo(ElmoGuitarPDOS::targetTorque_index, ElmoGuitarPDOS::targetTorque_subindex, static_cast<std::int16_t>(0));
+						pFather->writePdo(ElmoGuitarPDOS::maxTorque_index, ElmoGuitarPDOS::maxTorque_subindex, static_cast<std::int16_t>(1500));
 						break;
 					}
 
@@ -102,7 +103,7 @@ namespace aris
 				else
 				{
 					/*the motor is in fault*/
-					pFather->writePdo(0, 4, static_cast<std::uint16_t>(0x80));
+					pFather->writePdo(ElmoGuitarPDOS::controlWord_index, ElmoGuitarPDOS::controlWord_subindex, static_cast<std::uint16_t>(0x80));
 					return 1;
 				}
 			}
@@ -111,7 +112,7 @@ namespace aris
 				is_fake = false;					
 
 				std::uint16_t statusWord;
-				pFather->readPdo(1, 3, statusWord);
+				pFather->readPdo(ElmoGuitarPDOS::statusWord_index, ElmoGuitarPDOS::statusword_subindex, statusWord);
 
 				int motorState = (statusWord & 0x000F);
 				if (motorState == 0x0001)
@@ -122,13 +123,13 @@ namespace aris
 				else if (motorState == 0x0003 || motorState == 0x0007 || motorState == 0x0000)
 				{
 					/*try to disable*/
-					pFather->writePdo(0, 4, static_cast<std::uint16_t>(0x06));
+					pFather->writePdo(ElmoGuitarPDOS::controlWord_index, ElmoGuitarPDOS::controlWord_subindex, static_cast<std::uint16_t>(0x06));
 					return 1;
 				}
 				else
 				{
 					/*the motor is in fault*/
-					pFather->writePdo(0, 4, static_cast<std::uint16_t>(0x80));
+					pFather->writePdo(ElmoGuitarPDOS::controlWord_index, ElmoGuitarPDOS::controlWord_subindex, static_cast<std::uint16_t>(0x80));
 					return 1;
 				}
 
@@ -145,7 +146,7 @@ namespace aris
 				}
 				
 				std::uint16_t statusWord;
-				pFather->readPdo(1, 3, statusWord);
+				pFather->readPdo(ElmoGuitarPDOS::statusWord_index, ElmoGuitarPDOS::statusword_subindex, statusWord);
 				int motorState = (statusWord & 0x000F);
 				if (motorState != 0x0007)
 				{
@@ -155,11 +156,11 @@ namespace aris
 				{
 					/*motor is in running state*/
 					std::uint8_t mode_Read;
-					pFather->readPdo(4, 0, mode_Read);
+					pFather->readPdo(ElmoGuitarPDOS::modeOfOperationDisplay_index, ElmoGuitarPDOS::modeOfOperationDisplay_subindex, mode_Read);
 					if (mode_Read != 0x0006)
 					{
 						/*set motor to mode 0x006, which is homing mode*/
-						pFather->writePdo(0, 5, static_cast<std::uint8_t>(0x006));
+						pFather->writePdo(ElmoGuitarPDOS::modeOfOperation_index, ElmoGuitarPDOS::modeOfOperation_subindex, static_cast<std::uint8_t>(0x006));
 						return 1;
 					}
 					else
@@ -168,14 +169,14 @@ namespace aris
 						{
 							/*home finished, set mode to running mode, whose value is decided by 
 							enable function, also write velocity to 0*/
-							pFather->writePdo(0, 5, static_cast<uint8_t>(running_mode));
+							pFather->writePdo(ElmoGuitarPDOS::modeOfOperation_index, ElmoGuitarPDOS::modeOfOperation_subindex, static_cast<uint8_t>(running_mode));
 							is_waiting_mode = true;
 							return 1;
 						}
 						else
 						{
 							/*still homing*/
-							pFather->writePdo(0, 4, static_cast<uint16_t>(0x1F));
+							pFather->writePdo(ElmoGuitarPDOS::controlWord_index, ElmoGuitarPDOS::controlWord_subindex, static_cast<uint16_t>(0x1F));
 							return 1;
 						}
 					}
@@ -186,11 +187,11 @@ namespace aris
 				if (is_fake)return 0;
 
 				std::uint16_t statusword;
-				pFather->readPdo(1, 3, statusword);
+				pFather->readPdo(ElmoGuitarPDOS::statusWord_index, ElmoGuitarPDOS::statusword_subindex, statusword);
 				int motorState = (statusword & 0x000F);
 
 				std::uint8_t mode_Read;
-				pFather->readPdo(4, 0, mode_Read);
+				pFather->readPdo(ElmoGuitarPDOS::modeOfOperationDisplay_index, ElmoGuitarPDOS::modeOfOperationDisplay_subindex, mode_Read);
 				if (motorState != 0x0007 || mode_Read != VELOCITY)
 				{
 					return -1;
@@ -205,7 +206,7 @@ namespace aris
 					desired_vel = std::max(desired_vel, -max_vel_count_);
 					desired_vel = std::min(desired_vel, max_vel_count_);
 					
-					pFather->writePdo(0, 1, desired_vel);
+					pFather->writePdo(ElmoGuitarPDOS::targetVelocity_index, ElmoGuitarPDOS::targetVelocity_subindex, desired_vel);
 					return 0;
 				}
 			}
@@ -214,18 +215,18 @@ namespace aris
 				if (is_fake)return 0;
 
 				std::uint16_t statusword;
-				pFather->readPdo(1, 3, statusword);
+				pFather->readPdo(ElmoGuitarPDOS::statusWord_index, ElmoGuitarPDOS::statusword_subindex, statusword);
 				int motorState = (statusword & 0x000F);
 
 				std::uint8_t mode_Read;
-				pFather->readPdo(4, 0, mode_Read);
+				pFather->readPdo(ElmoGuitarPDOS::modeOfOperationDisplay_index, ElmoGuitarPDOS::modeOfOperationDisplay_subindex, mode_Read);
 				if (motorState != 0x0007 || mode_Read != VELOCITY)
 				{
 					return -1;
 				}
 				else
 				{
-					pFather->writePdo(0, 1, vel);
+					pFather->writePdo(ElmoGuitarPDOS::targetVelocity_index, ElmoGuitarPDOS::targetVelocity_subindex, vel);
 					return 0;
 				}
 			}
@@ -234,24 +235,24 @@ namespace aris
 				if (is_fake)return 0;
 								
 				std::uint16_t statusword;
-				pFather->readPdo(1, 3, statusword);
+				pFather->readPdo(ElmoGuitarPDOS::statusWord_index, ElmoGuitarPDOS::statusword_subindex, statusword);
 				int motorState = (statusword & 0x000F);
 
 				std::uint8_t mode_Read;
-				pFather->readPdo(4, 0, mode_Read);
+				pFather->readPdo(ElmoGuitarPDOS::modeOfOperationDisplay_index, ElmoGuitarPDOS::modeOfOperationDisplay_subindex, mode_Read);
 				if (motorState != 0x0007 || mode_Read != CURRENT) //need running and cur mode
 				{
 					return -1;
 				}
 				else
 				{
-					pFather->writePdo(0, 2, cur);
+					pFather->writePdo(ElmoGuitarPDOS::targetTorque_index, ElmoGuitarPDOS::targetTorque_subindex, cur);
 					return 0;
 				}
 			}
-			std::int32_t pos() { std::int32_t pos; pFather->readPdo(1, 0, pos); return pos + pos_offset_; };
-			std::int32_t vel() { std::int32_t vel; pFather->readPdo(1, 2, vel); return vel; };
-			std::int32_t cur() { std::int16_t cur; pFather->readPdo(2, 0, cur); return cur; };
+			std::int32_t pos() { std::int32_t pos; pFather->readPdo(ElmoGuitarPDOS::positionActualValue_index, ElmoGuitarPDOS::positionActualValue_subindex, pos); return pos + pos_offset_; };
+			std::int32_t vel() { std::int32_t vel; pFather->readPdo(ElmoGuitarPDOS::velocityActualValue_index, ElmoGuitarPDOS::velocityAcutalValue_subindex, vel); return vel; };
+			std::int32_t cur() { std::int16_t cur; pFather->readPdo(ElmoGuitarPDOS::currentActualValue_index, ElmoGuitarPDOS::currentActualValue_subindex, cur); return cur; };
 		
 			std::int32_t input2count_;
 			std::int32_t home_count_;
@@ -356,7 +357,7 @@ namespace aris
 		auto EthercatMotion::hasFault()->bool
 		{
 			std::uint16_t statusword;
-			this->readPdo(1, 3, statusword);
+			this->readPdo(ElmoGuitarPDOS::statusWord_index, ElmoGuitarPDOS::statusword_subindex, statusword);
 			int motorState = (statusword & 0x000F);
 			return (motorState != 0x0003 && motorState != 0x0007 && motorState != 0x0001 && motorState != 0x0000) ? true : false;
 		}
@@ -379,22 +380,22 @@ namespace aris
 		{
 			std::int32_t value;
 
-			this->readPdo(0, 0, value);
+			this->readPdo(ElmoGuitarPDOS::targetPosition_index, ElmoGuitarPDOS::targetPosition_subindex, value);
 			data.Fx = static_cast<double>(value) / force_ratio_;
 
-			this->readPdo(0, 1, value);
+			this->readPdo(ElmoGuitarPDOS::targetVelocity_index, ElmoGuitarPDOS::targetVelocity_subindex, value);
 			data.Fy = static_cast<double>(value) / force_ratio_;
 
-			this->readPdo(0, 2, value);
+			this->readPdo(ElmoGuitarPDOS::targetTorque_index, ElmoGuitarPDOS::targetTorque_subindex, value);
 			data.Fz = static_cast<double>(value) / force_ratio_;
 
-			this->readPdo(0, 3, value);
+			this->readPdo(ElmoGuitarPDOS::maxTorque_index, ElmoGuitarPDOS::maxTorque_subindex, value);
 			data.Mx = static_cast<double>(value) / torque_ratio_;
 
-			this->readPdo(0, 4, value);
+			this->readPdo(ElmoGuitarPDOS::controlWord_index, ElmoGuitarPDOS::controlWord_subindex, value);
 			data.My = static_cast<double>(value) / torque_ratio_;
 
-			this->readPdo(0, 5, value);
+			this->readPdo(ElmoGuitarPDOS::modeOfOperation_index, ElmoGuitarPDOS::modeOfOperation_subindex, value);
 			data.Mz = static_cast<double>(value) / torque_ratio_;
 		}
 
