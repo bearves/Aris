@@ -199,7 +199,7 @@ namespace aris
 				else
 				{
 					std::int32_t current_pos = this->pos();
-					double Kp = 200;
+					double Kp = 120;
 					std::int32_t desired_vel = static_cast<std::int32_t>(Kp*(pos - current_pos));
 					
 					/*保护上下限*/
@@ -251,7 +251,7 @@ namespace aris
 				}
 			}
 			std::int32_t pos() { std::int32_t pos; pFather->readPdo(ElmoGuitarPDOS::positionActualValue_index, ElmoGuitarPDOS::positionActualValue_subindex, pos); return pos + pos_offset_; };
-			std::int32_t vel() { std::int32_t vel; pFather->readPdo(ElmoGuitarPDOS::velocityActualValue_index, ElmoGuitarPDOS::velocityAcutalValue_subindex, vel); return vel; };
+            std::int32_t vel() { std::int32_t vel; pFather->readPdo(ElmoGuitarPDOS::velocityActualValue_index, ElmoGuitarPDOS::velocityActualValue_subindex, vel); return vel; };
 			std::int32_t cur() { std::int16_t cur; pFather->readPdo(ElmoGuitarPDOS::torqueActualValue_index, ElmoGuitarPDOS::torqueActualValue_subindex, cur); return cur; };
 		
 			std::int32_t input2count_;

@@ -25,8 +25,8 @@ public:
 	static const int statusword_subindex = 3;
 	static const int modeOfOperationDisplay_index = 1;
 	static const int modeOfOperationDisplay_subindex = 4;
-	static const int velocityAcutualValue_index = 2;
-	static const int velocityAcutualValue_subindex = 0;
+	static const int velocityActualValue_index = 2;
+	static const int velocityActualValue_subindex = 0;
 	static const int digitalInputs_index = 3;
 	static const int digitalInputs_subindex = 0;
 };
