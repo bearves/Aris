@@ -17,18 +17,18 @@ public:
 	static const int modeOfOperation_subindex = 5;
 	static const int positionActualValue_index = 1;
 	static const int positionActualValue_subindex = 0;
-	static const int digitalInputs_index = 1;
-	static const int digitalInputs_subindex = 1;
-	static const int velocityActualValue_index = 1;
-	static const int velocityAcutalValue_subindex = 2;
+	static const int positionFollowingErrorActualValue_index = 1;
+	static const int positionFollowingErrorActualValue_subindex = 1;
+	static const int torqueActualValue_index = 1;
+	static const int torqueActualValue_subindex = 2;
 	static const int statusWord_index = 1;
 	static const int statusword_subindex = 3;
-	static const int currentActualValue_index = 2;
-	static const int currentActualValue_subindex = 0;
-	static const int torqueActualValue_index = 3;
-	static const int torqueActualValue_subindex = 0;
-	static const int modeOfOperationDisplay_index = 4;
-	static const int modeOfOperationDisplay_subindex = 0;
+	static const int modeOfOperationDisplay_index = 1;
+	static const int modeOfOperationDisplay_subindex = 4;
+	static const int velocityAcutualValue_index = 2;
+	static const int velocityAcutualValue_subindex = 0;
+	static const int digitalInputs_index = 3;
+	static const int digitalInputs_subindex = 0;
 };
 
 #endif // !PDOIndexDefinition_H
