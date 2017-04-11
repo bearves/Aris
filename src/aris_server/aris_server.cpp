@@ -1105,45 +1105,14 @@ namespace aris
 					));
 			}
 
-			rt_printf("feedback:\n%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n"
-				, data.motion_raw_data->at(0).feedback_pos
-				, data.motion_raw_data->at(1).feedback_pos
-				, data.motion_raw_data->at(2).feedback_pos
-				, data.motion_raw_data->at(3).feedback_pos
-				, data.motion_raw_data->at(4).feedback_pos
-				, data.motion_raw_data->at(5).feedback_pos
-				, data.motion_raw_data->at(6).feedback_pos
-				, data.motion_raw_data->at(7).feedback_pos
-				, data.motion_raw_data->at(8).feedback_pos
-				, data.motion_raw_data->at(9).feedback_pos
-				, data.motion_raw_data->at(10).feedback_pos
-				, data.motion_raw_data->at(11).feedback_pos
-				, data.motion_raw_data->at(12).feedback_pos
-				, data.motion_raw_data->at(13).feedback_pos
-				, data.motion_raw_data->at(14).feedback_pos
-				, data.motion_raw_data->at(15).feedback_pos
-				, data.motion_raw_data->at(16).feedback_pos
-				, data.motion_raw_data->at(17).feedback_pos);
-
-			rt_printf("pos_offset:\n%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n"
-				, controller_->motionAtAbs(0).posOffset()
-				, controller_->motionAtAbs(1).posOffset()
-				, controller_->motionAtAbs(2).posOffset()
-				, controller_->motionAtAbs(3).posOffset()
-				, controller_->motionAtAbs(4).posOffset()
-				, controller_->motionAtAbs(5).posOffset()
-				, controller_->motionAtAbs(6).posOffset()
-				, controller_->motionAtAbs(7).posOffset()
-				, controller_->motionAtAbs(8).posOffset()
-				, controller_->motionAtAbs(9).posOffset()
-				, controller_->motionAtAbs(10).posOffset()
-				, controller_->motionAtAbs(11).posOffset()
-				, controller_->motionAtAbs(12).posOffset()
-				, controller_->motionAtAbs(13).posOffset()
-				, controller_->motionAtAbs(14).posOffset()
-				, controller_->motionAtAbs(15).posOffset()
-				, controller_->motionAtAbs(16).posOffset()
-				, controller_->motionAtAbs(17).posOffset());
+            for (std::size_t i = 0; i < model_->motionPool().size(); ++i){
+                rt_printf("Pos2CountRatio %d\n", controller_->motionAtAbs(i).pos2countRatio());
+                rt_printf("Motpos: %.3f FeedbackPos: %d  posOffset: %d\n",
+                          model_->motionPool().at(i).motPos(),
+                          data.motion_raw_data->at(0).feedback_pos,
+                          controller_->motionAtAbs(0).posOffset()
+                          );
+            }
 
 			return 0;
 		};
