@@ -18,7 +18,7 @@ public:
 	int torqueActualValue_index = 1;
 	int torqueActualValue_subindex = 2;
 	int statusWord_index = 1;
-	int statusword_subindex = 3;
+	int statusWord_subindex = 3;
 	int modeOfOperationDisplay_index = 1;
 	int modeOfOperationDisplay_subindex = 4;
 	int velocityActualValue_index = 2;
@@ -48,7 +48,7 @@ public:
 		torqueActualValue_index = 1;
 		torqueActualValue_subindex = 2;
 		statusWord_index = 1;
-		statusword_subindex = 3;
+		statusWord_subindex = 3;
 		modeOfOperationDisplay_index = 1;
 		modeOfOperationDisplay_subindex = 4;
 		velocityActualValue_index = 2;
@@ -81,7 +81,7 @@ public:
 		torqueActualValue_index = 2;
 		torqueActualValue_subindex = 1;
 		statusWord_index = 2;
-		statusword_subindex = 2;
+		statusWord_subindex = 2;
 		modeOfOperationDisplay_index = 2;
 		modeOfOperationDisplay_subindex = 3;
 		velocityActualValue_index = 3;

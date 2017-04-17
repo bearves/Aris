@@ -51,57 +51,88 @@ namespace aris
 				is_fake = false;				
 
 				std::uint16_t statusWord;
-				pFather->readPdo(io_mapping_->statusWord_index, io_mapping_->statusword_subindex, statusWord);
+				pFather->readPdo(
+					io_mapping_->statusWord_index, 
+					io_mapping_->statusWord_subindex, 
+					statusWord);
 
 				std::uint8_t modeRead;
-				pFather->readPdo(io_mapping_->modeOfOperationDisplay_index, io_mapping_->modeOfOperationDisplay_subindex, modeRead);
+				pFather->readPdo(
+					io_mapping_->modeOfOperationDisplay_index, 
+					io_mapping_->modeOfOperationDisplay_subindex, 
+					modeRead);
 
 				int motorState = (statusWord & 0x000F);
 
 				if (motorState == 0x0000)
 				{
 					/*state is POWERED_OFF, now set it to STOPPED*/
-					pFather->writePdo(io_mapping_->controlWord_index, io_mapping_->controlWord_subindex, static_cast<std::uint16_t>(0x06));
+					pFather->writePdo(
+						io_mapping_->controlWord_index, 
+						io_mapping_->controlWord_subindex, 
+						static_cast<std::uint16_t>(0x06));
 					return 1;
 				}
 				else if (motorState == 0x0001)
 				{
 					/*state is STOPPED, now set it to ENABLED*/
-					pFather->writePdo(io_mapping_->controlWord_index, io_mapping_->controlWord_subindex, static_cast<std::uint16_t>(0x07));
+					pFather->writePdo(
+						io_mapping_->controlWord_index, 
+						io_mapping_->controlWord_subindex, 
+						static_cast<std::uint16_t>(0x07));
 					return 1;
 				}
 				else if (motorState == 0x0003)
 				{
 					/*state is ENABLED, now set it to RUNNING*/
-					pFather->writePdo(io_mapping_->controlWord_index, io_mapping_->controlWord_subindex, static_cast<std::uint16_t>(0x0F));
-					return 1;
-				}
-				else if ((mode == POSITION) && (modeRead != VELOCITY))
-				{
-					/*state is RUNNING, now to set desired mode*/
-					/*desired mode is POSITION, but we need to use our own velocity loop*/
-					pFather->writePdo(io_mapping_->modeOfOperation_index, io_mapping_->modeOfOperation_subindex, static_cast<std::uint8_t>(VELOCITY));
-					return 1;
-				}
-				else if ((mode != POSITION) && (modeRead != mode))
-				{
-					/*state is RUNNING, now change it to desired mode*/
-					pFather->writePdo(io_mapping_->modeOfOperation_index, io_mapping_->modeOfOperation_subindex, static_cast<std::uint8_t>(mode));
+					pFather->writePdo(
+						io_mapping_->controlWord_index, 
+						io_mapping_->controlWord_subindex, 
+						static_cast<std::uint16_t>(0x0F));
 					return 1;
 				}
 				else if (motorState == 0x0007)
 				{
+					if ((mode == POSITION) && (modeRead != VELOCITY))
+					{
+						/*state is RUNNING, now to set desired mode*/
+						/*desired mode is POSITION, but we need to use our own velocity loop*/
+						pFather->writePdo(
+							io_mapping_->modeOfOperation_index, 
+							io_mapping_->modeOfOperation_subindex, 
+							static_cast<std::uint8_t>(VELOCITY));
+						return 1;
+					}
+					else if ((mode != POSITION) && (modeRead != mode))
+					{
+						/*state is RUNNING, now change it to desired mode*/
+						pFather->writePdo(
+							io_mapping_->modeOfOperation_index, 
+							io_mapping_->modeOfOperation_subindex, 
+							static_cast<std::uint8_t>(mode));
+						return 1;
+					}
+
 					/*successfull, but still need to wait for 10 more cycles to make it stable*/
 					switch (mode)
 					{
 					case POSITION:
 					case VELOCITY:
 						/*velocity loop to set velocity of 0*/
-						pFather->writePdo(io_mapping_->targetVelocity_index, io_mapping_->targetVelocity_subindex, static_cast<std::int32_t>(0));
+						pFather->writePdo(
+							io_mapping_->targetVelocity_index, 
+							io_mapping_->targetVelocity_subindex, 
+							static_cast<std::int32_t>(0));
 						break;
 					case CURRENT:
-						pFather->writePdo(io_mapping_->targetTorque_index, io_mapping_->targetTorque_subindex, static_cast<std::int16_t>(0));
-						//pFather->writePdo(io_mapping_->maxTorque_index, io_mapping_->maxTorque_subindex, static_cast<std::int16_t>(1500));
+						pFather->writePdo(
+							io_mapping_->targetTorque_index, 
+							io_mapping_->targetTorque_subindex, 
+							static_cast<std::int16_t>(0));
+						//pFather->writePdo(
+						//	io_mapping_->maxTorque_index, 
+						//	io_mapping_->maxTorque_subindex, 
+						//	static_cast<std::int16_t>(1500));
 						break;
 					}
 
@@ -119,7 +150,10 @@ namespace aris
 				else
 				{
 					/*the motor is in fault*/
-					pFather->writePdo(io_mapping_->controlWord_index, io_mapping_->controlWord_subindex, static_cast<std::uint16_t>(0x80));
+					pFather->writePdo(
+						io_mapping_->controlWord_index, 
+						io_mapping_->controlWord_subindex, 
+						static_cast<std::uint16_t>(0x80));
 					return 1;
 				}
 			}
@@ -128,7 +162,10 @@ namespace aris
 				is_fake = false;					
 
 				std::uint16_t statusWord;
-				pFather->readPdo(io_mapping_->statusWord_index, io_mapping_->statusword_subindex, statusWord);
+				pFather->readPdo(
+					io_mapping_->statusWord_index, 
+					io_mapping_->statusWord_subindex, 
+					statusWord);
 
 				int motorState = (statusWord & 0x000F);
 				if (motorState == 0x0001)
@@ -139,13 +176,19 @@ namespace aris
 				else if (motorState == 0x0003 || motorState == 0x0007 || motorState == 0x0000)
 				{
 					/*try to disable*/
-					pFather->writePdo(io_mapping_->controlWord_index, io_mapping_->controlWord_subindex, static_cast<std::uint16_t>(0x06));
+					pFather->writePdo(
+						io_mapping_->controlWord_index, 
+						io_mapping_->controlWord_subindex, 
+						static_cast<std::uint16_t>(0x06));
 					return 1;
 				}
 				else
 				{
 					/*the motor is in fault*/
-					pFather->writePdo(io_mapping_->controlWord_index, io_mapping_->controlWord_subindex, static_cast<std::uint16_t>(0x80));
+					pFather->writePdo(
+						io_mapping_->controlWord_index, 
+						io_mapping_->controlWord_subindex, 
+						static_cast<std::uint16_t>(0x80));
 					return 1;
 				}
 
@@ -162,40 +205,114 @@ namespace aris
 				}
 				
 				std::uint16_t statusWord;
-				pFather->readPdo(io_mapping_->statusWord_index, io_mapping_->statusword_subindex, statusWord);
+				std::uint8_t mode_Read;
+				// get current status and op mode
+				pFather->readPdo(
+					io_mapping_->statusWord_index, 
+					io_mapping_->statusWord_subindex, 
+					statusWord);
 				int motorState = (statusWord & 0x000F);
-				if (motorState != 0x0007)
+
+				pFather->readPdo(
+					io_mapping_->modeOfOperationDisplay_index, 
+					io_mapping_->modeOfOperationDisplay_subindex, 
+					mode_Read);
+
+				if (motorState == 0x0007 && mode_Read != HOMING)
 				{
-					return -1;
+					// jump out from other modes
+					pFather->writePdo(
+						io_mapping_->controlWord_index, 
+						io_mapping_->controlWord_subindex,
+						static_cast<uint16_t>(0x06));
+					rt_printf("Jump \n");
+					return 1;
+				}
+				else if (mode_Read != HOMING) // motorState is not running but the mode have not changed to home mode yet
+				{
+					pFather->writePdo(
+						io_mapping_->modeOfOperation_index, 
+						io_mapping_->modeOfOperation_subindex, 
+						static_cast<std::uint8_t>(HOMING));
+					rt_printf("Change to HOMING\n");
+					return 1;
+				}
+				else if (motorState != 0x0007) // mode must have changed but the motor state is not running yet
+				{
+					// now enable the motor to the HOMING mode
+					if (motorState == 0x0003)
+					{
+						/*state is ENABLED, now set it to RUNNING*/
+						pFather->writePdo(
+							io_mapping_->controlWord_index, 
+							io_mapping_->controlWord_subindex, 
+							static_cast<std::uint16_t>(0x0F));
+						rt_printf("Re running\n");
+					}
+					else if (motorState == 0x0001)
+					{
+						pFather->writePdo(
+							io_mapping_->controlWord_index, 
+							io_mapping_->controlWord_subindex, 
+							static_cast<std::uint16_t>(0x07));
+						rt_printf("Re enable\n");
+					}
+					else if (motorState == 0x0000)
+					{
+						pFather->writePdo(
+							io_mapping_->controlWord_index, 
+							io_mapping_->controlWord_subindex, 
+							static_cast<std::uint16_t>(0x06));
+						rt_printf("Re power on\n");
+					}
+
+					pFather->writePdo(
+						io_mapping_->modeOfOperation_index, 
+						io_mapping_->modeOfOperation_subindex, 
+						static_cast<std::uint8_t>(HOMING));
+
+					home_period = 0;
+					return 1;
 				}
 				else
 				{
-					/*motor is in running state*/
-					std::uint8_t mode_Read;
-					pFather->readPdo(io_mapping_->modeOfOperationDisplay_index, io_mapping_->modeOfOperationDisplay_subindex, mode_Read);
-					if (mode_Read != 0x0006)
+					/*motor is in running state and in homing mode*/
+
+					if (statusWord & 0x1000)
 					{
-						/*set motor to mode 0x006, which is homing mode*/
-						pFather->writePdo(io_mapping_->modeOfOperation_index, io_mapping_->modeOfOperation_subindex, static_cast<std::uint8_t>(0x006));
+						/*home finished, set mode to running mode, whose value is decided by 
+						enable function, also write velocity to 0*/
+						pFather->writePdo(
+							io_mapping_->modeOfOperation_index, 
+							io_mapping_->modeOfOperation_subindex, 
+							static_cast<uint8_t>(running_mode));
+
+						is_waiting_mode = true;
 						return 1;
 					}
 					else
 					{
-						if (statusWord & 0x1000)
+						// prepare to start homing
+						if (home_period < 200)
 						{
-							/*home finished, set mode to running mode, whose value is decided by 
-							enable function, also write velocity to 0*/
-							pFather->writePdo(io_mapping_->modeOfOperation_index, io_mapping_->modeOfOperation_subindex, static_cast<uint8_t>(running_mode));
-							is_waiting_mode = true;
+							pFather->writePdo(
+								io_mapping_->controlWord_index, 
+								io_mapping_->controlWord_subindex,
+								static_cast<uint16_t>(0x0F));
+							home_period++;
+							rt_printf("I am here\n");
 							return 1;
 						}
-						else
-						{
-							/*still homing*/
-							pFather->writePdo(io_mapping_->controlWord_index, io_mapping_->controlWord_subindex, static_cast<uint16_t>(0x1F));
-							return 1;
-						}
+						// homing have started
+						/*still homing*/
+						pFather->writePdo(
+							io_mapping_->controlWord_index, 
+							io_mapping_->controlWord_subindex,
+							static_cast<uint16_t>(0x1F));
+						
+						return 1;
 					}
+					
 				}
 			}
 			std::int16_t runPos(const std::int32_t pos)
@@ -203,7 +320,7 @@ namespace aris
 				if (is_fake)return 0;
 
 				std::uint16_t statusword;
-				pFather->readPdo(io_mapping_->statusWord_index, io_mapping_->statusword_subindex, statusword);
+				pFather->readPdo(io_mapping_->statusWord_index, io_mapping_->statusWord_subindex, statusword);
 				int motorState = (statusword & 0x000F);
 
 				std::uint8_t mode_Read;
@@ -231,7 +348,7 @@ namespace aris
 				if (is_fake)return 0;
 
 				std::uint16_t statusword;
-				pFather->readPdo(io_mapping_->statusWord_index, io_mapping_->statusword_subindex, statusword);
+				pFather->readPdo(io_mapping_->statusWord_index, io_mapping_->statusWord_subindex, statusword);
 				int motorState = (statusword & 0x000F);
 
 				std::uint8_t mode_Read;
@@ -251,7 +368,7 @@ namespace aris
 				if (is_fake)return 0;
 								
 				std::uint16_t statusword;
-				pFather->readPdo(io_mapping_->statusWord_index, io_mapping_->statusword_subindex, statusword);
+				pFather->readPdo(io_mapping_->statusWord_index, io_mapping_->statusWord_subindex, statusword);
 				int motorState = (statusword & 0x000F);
 
 				std::uint8_t mode_Read;
@@ -266,9 +383,39 @@ namespace aris
 					return 0;
 				}
 			}
-			std::int32_t pos() { std::int32_t pos; pFather->readPdo(io_mapping_->positionActualValue_index, io_mapping_->positionActualValue_subindex, pos); return pos + pos_offset_; };
-            std::int32_t vel() { std::int32_t vel; pFather->readPdo(io_mapping_->velocityActualValue_index, io_mapping_->velocityActualValue_subindex, vel); return vel; };
-			std::int32_t cur() { std::int16_t cur; pFather->readPdo(io_mapping_->torqueActualValue_index, io_mapping_->torqueActualValue_subindex, cur); return cur; };
+
+			std::int32_t pos()
+			{
+				std::int32_t pos;
+				pFather->readPdo(io_mapping_->positionActualValue_index, io_mapping_->positionActualValue_subindex, pos); 					return pos + pos_offset_;
+			};
+
+			std::int32_t vel() 
+			{
+				std::int32_t vel;
+				pFather->readPdo(io_mapping_->velocityActualValue_index, io_mapping_->velocityActualValue_subindex, vel); 					return vel;
+			};
+	
+			std::int32_t cur()
+			{
+				std::int16_t cur;
+				pFather->readPdo(io_mapping_->torqueActualValue_index, io_mapping_->torqueActualValue_subindex, cur);
+				return cur;
+			};
+			
+			std::int16_t operationMode()
+			{
+				std::uint8_t om;
+				pFather->readPdo(io_mapping_->modeOfOperationDisplay_index, io_mapping_->modeOfOperationDisplay_subindex, om);
+				return om;
+			};
+
+			std::int32_t statusWord()
+			{
+				std::uint16_t sw;
+				pFather->readPdo(io_mapping_->statusWord_index, io_mapping_->statusWord_subindex, sw);
+				return sw;
+			};
 		
 			std::int32_t input2count_;
 			std::int32_t home_count_;
@@ -288,6 +435,8 @@ namespace aris
 			bool is_waiting_mode{ false };
 			
 			int enable_period{ 0 };
+			int home_period { 0 };
+
 			std::uint8_t running_mode{ 9 };
 		};
 
@@ -378,7 +527,7 @@ namespace aris
 		auto EthercatMotion::hasFault()->bool
 		{
 			std::uint16_t statusword;
-			this->readPdo(imp_->io_mapping_->statusWord_index, imp_->io_mapping_->statusword_subindex, statusword);
+			this->readPdo(imp_->io_mapping_->statusWord_index, imp_->io_mapping_->statusWord_subindex, statusword);
 			int motorState = (statusword & 0x000F);
 			return (motorState != 0x0003 && motorState != 0x0007 && motorState != 0x0001 && motorState != 0x0000) ? true : false;
 		}
@@ -395,6 +544,16 @@ namespace aris
 		auto EthercatMotion::posOffset()const->std::int32_t
 		{
 			return imp_->pos_offset_;
+		}
+
+		auto EthercatMotion::printStatus() const -> void
+		{
+			rt_printf("Mot PhyID %d: sw %5d om %2d pos %7d\n", 
+				imp_->phy_id_, 
+				imp_->statusWord(),
+				imp_->operationMode(),
+				imp_->pos()
+				);
 		}
 
 		auto EthercatForceSensor::readData(Data &data)->void
@@ -552,8 +711,11 @@ namespace aris
 		auto EthercatController::forceSensorNum()->std::size_t { return imp_->force_sensor_vec_.size(); };
 		auto EthercatController::forceSensorAt(int i)->EthercatForceSensor & { return *imp_->force_sensor_vec_.at(i); };
 		auto EthercatController::msgPipe()->Pipe<aris::core::Msg>& { return imp_->msg_pipe_; };
+
 		auto EthercatController::controlStrategy()->void
 		{
+			static int control_count = 0;
+
 			/*构造传入strategy的参数*/
 			Data data{ &imp_->last_motion_rawdata_, &imp_->motion_rawdata_, &imp_->force_sensor_data_, nullptr, nullptr };
 			
@@ -595,6 +757,13 @@ namespace aris
 			{
 				this->msgPipe().sendToNrt(*data.msg_send);
 			}
+			
+			if (control_count % 1000 == 0)
+			{
+				motionAtPhy(0).printStatus();
+			}
+
+			control_count ++;
 		}
 	}
 }

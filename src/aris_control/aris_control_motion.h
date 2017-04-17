@@ -25,9 +25,10 @@ namespace aris
 			};
 			enum Mode
 			{
+				HOMING   = 0x0006,
 				POSITION = 0x0008,
 				VELOCITY = 0x0009,
-				CURRENT = 0x0010,
+				CURRENT  = 0x0010,
 			};
 			struct RawData
 			{
@@ -52,6 +53,7 @@ namespace aris
 			auto pos2countRatio()->std::int32_t;
 			auto setPosOffset(std::int32_t offset)->void;
 			auto posOffset()const->std::int32_t;
+			auto printStatus() const -> void;
 
 		private:
 			class Imp;
