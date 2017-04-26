@@ -53,6 +53,7 @@ namespace aris
                     std::uint16_t statusWord = this->statusWord();
 
                     std::uint8_t modeRead = this->operationMode();
+                    static std::int32_t current_pos;
 
                     int motorState = (statusWord & 0x000F);
 
@@ -77,6 +78,9 @@ namespace aris
                     else if (motorState == 0x0003)
                     {
                         /*state is ENABLED, now set it to RUNNING*/
+
+                        current_pos = this->pos();
+
                         pFather->writePdo(
                                 io_mapping_->controlWord_index, 
                                 io_mapping_->controlWord_subindex, 
@@ -95,7 +99,6 @@ namespace aris
                             return 1;
                         }
 
-                        std::int32_t current_pos = this->pos();
 
                         /*successfull, but still need to wait for 10 more cycles to make it stable*/
                         switch (mode)
@@ -771,8 +774,8 @@ namespace aris
 
             if (control_count % 1000 == 0)
             {
-                //motionAtPhy(0).printStatus();
-                //rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
+                motionAtPhy(0).printStatus();
+                rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
             }
 
             control_count ++;
