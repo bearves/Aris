@@ -901,7 +901,15 @@ namespace aris
 
             // 检查是否出错 //
             static int fault_count = 0;
-            auto error_motor = std::find_if(data.motion_raw_data->begin(), data.motion_raw_data->end(), [](const aris::control::EthercatMotion::RawData &data) {return data.ret < 0; });
+
+            auto error_motor = std::find_if(
+                data.motion_raw_data->begin(), 
+                data.motion_raw_data->end(), 
+                [](const aris::control::EthercatMotion::RawData &data) 
+                {
+                    return data.ret < 0; 
+                });
+
             if (error_motor != data.motion_raw_data->end())
             {
                 if (fault_count++ % 1000 == 0)
@@ -953,7 +961,8 @@ namespace aris
                 }
                 else
                 {
-                    if (++imp->count_ % 1000 == 0)rt_printf("execute cmd in count: %d\n", imp->count_);
+                    if (++imp->count_ % 1000 == 0)
+                        rt_printf("execute cmd in count: %d\n", imp->count_);
                 }
             }
 

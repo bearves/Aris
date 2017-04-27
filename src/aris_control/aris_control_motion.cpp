@@ -556,11 +556,13 @@ namespace aris
 
         auto EthercatMotion::printStatus() const -> void
         {
-            rt_printf("Mot PhyID %d: sw %5d om %2d pos %7d\n", 
+            rt_printf("Mot PhyID %d: sw %5d om %2d pos %7d vel %7d cur %7d\n", 
                     imp_->phy_id_, 
                     imp_->statusWord(),
                     imp_->operationMode(),
-                    imp_->pos()
+                    imp_->pos(),
+                    imp_->vel(),
+                    imp_->cur()
                     );
         }
 
@@ -775,6 +777,8 @@ namespace aris
             if (control_count % 1000 == 0)
             {
                 motionAtPhy(0).printStatus();
+                motionAtPhy(1).printStatus();
+                motionAtPhy(2).printStatus();
                 rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
             }
 

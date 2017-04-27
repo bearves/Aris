@@ -421,7 +421,7 @@ namespace aris
             imp_->ec_sync_info_[0] = ec_sync_info_t{ 0, EC_DIR_OUTPUT, 0, NULL, EC_WD_DISABLE };
             imp_->ec_sync_info_[1] = ec_sync_info_t{ 1, EC_DIR_INPUT, 0, NULL, EC_WD_DISABLE };
             imp_->ec_sync_info_[2] = ec_sync_info_t{ 2, EC_DIR_OUTPUT, static_cast<unsigned int>(imp_->ec_pdo_info_vec_rx_.size()), imp_->ec_pdo_info_vec_rx_.data(), EC_WD_ENABLE };
-            imp_->ec_sync_info_[3] = ec_sync_info_t{ 3, EC_DIR_INPUT, static_cast<unsigned int>(imp_->ec_pdo_info_vec_tx_.size()),imp_->ec_pdo_info_vec_tx_.data(), EC_WD_DISABLE };
+            imp_->ec_sync_info_[3] = ec_sync_info_t{ 3, EC_DIR_INPUT, static_cast<unsigned int>(imp_->ec_pdo_info_vec_tx_.size()),imp_->ec_pdo_info_vec_tx_.data(), EC_WD_ENABLE };
             imp_->ec_sync_info_[4] = ec_sync_info_t{ 0xff };
         }
         EthercatSlave::~EthercatSlave() {};
