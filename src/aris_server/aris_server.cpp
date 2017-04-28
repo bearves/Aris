@@ -419,6 +419,8 @@ namespace aris
 
                 static auto tg(aris::control::EthercatController::Data &data)->int;
                 auto run(GaitParamBase &param, aris::control::EthercatController::Data &data)->int;
+                bool is_clear_cmd_queue_msg(char *cmd_param);
+                int  discard_all_cmd(aris::control::EthercatController::Data& data);
                 auto execute_cmd(int count, char *cmd, aris::control::EthercatController::Data &data)->int;
                 auto enable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto disable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
@@ -434,7 +436,8 @@ namespace aris
                     RUN_GAIT,
                     FAKE_HOME,
 
-                    ROBOT_CMD_COUNT
+                    ROBOT_CMD_COUNT,
+                    CLEAR_CMD_QUEUE
                 };
 
             private:
@@ -465,6 +468,13 @@ namespace aris
                     {
                         BasicFunctionParam param;
                         param.cmd_type = Imp::RobotCmdID::DISABLE;
+                        std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
+                        msg.copyStruct(param);
+                    } };
+                ParseFunc parse_clear_queue_func_{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
+                    {
+                        BasicFunctionParam param;
+                        param.cmd_type = Imp::RobotCmdID::CLEAR_CMD_QUEUE;
                         std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
                         msg.copyStruct(param);
                     } };
@@ -549,23 +559,22 @@ namespace aris
                     });
             server_socket_.setOnLoseConnection([this](aris::core::Socket *socket)
                     {
-                    aris::core::log("lost connection");
-                    while (true)
-                    {
-                    try
-                    {
-                    socket->startServer(this->server_socket_port_.c_str());
-                    break;
-                    }
-                    catch (aris::core::Socket::StartServerError &e)
-                    {
-                    std::cout << e.what() << std::endl << "will try to restart server socket in 1s" << std::endl;
-                    aris::core::msSleep(1000);
-                    }
-                    }
-                    aris::core::log("restart server socket successful");
-
-                    return 0;
+                        aris::core::log("lost connection");
+                        while (true)
+                        {
+                            try
+                            {
+                                socket->startServer(this->server_socket_port_.c_str());
+                                break;
+                            }
+                            catch (aris::core::Socket::StartServerError &e)
+                            {
+                                std::cout << e.what() << std::endl << "will try to restart server socket in 1s" << std::endl;
+                                aris::core::msSleep(1000);
+                            }
+                        }
+                        aris::core::log("restart server socket successful");
+                        return 0;
                     });
         }
         auto ControlServer::Imp::addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const aris::dynamic::PlanFunc &gait_func)->void
@@ -579,6 +588,12 @@ namespace aris
             {
                 if (gait_func)throw std::runtime_error("you can not set plan_func for \"ds\" command");
                 this->parse_disable_func_ = parse_func;
+            }
+            else if (cmd_name == "cq")
+            {
+                if (gait_func)
+                    throw std::runtime_error("you can not set plan_func for \"cq\" command");
+                this->parse_clear_queue_func_ = parse_func;
             }
             else if (cmd_name == "hm")
             {
@@ -857,6 +872,15 @@ namespace aris
                 if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for ds");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::DISABLE;
             }
+            else if (cmd == "cq")
+            {
+                std::cout << "Clear Queue message is received, all commands are canceled and all motors are disabled" << std::endl;
+                parse_clear_queue_func_(cmd, params, cmd_msg);
+                if (cmd_msg.size() != sizeof(BasicFunctionParam))
+                    throw std::runtime_error("invalid msg length of parse function for cq");
+
+                reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::CLEAR_CMD_QUEUE;
+            }
             else if (cmd == "hm")
             {
                 parse_home_func_(cmd, params, cmd_msg);
@@ -921,13 +945,7 @@ namespace aris
                     rt_printf("Some motor is in fault, now try to disable all motors\n");
                     rt_printf("All commands in command queue are discarded\n");
                 }
-                for (auto &mot_data : *data.motion_raw_data)
-                {
-                    mot_data.cmd = aris::control::EthercatMotion::DISABLE;
-                }
-
-                imp->cmd_num_ = 0;
-                imp->count_ = 0;
+                imp->discard_all_cmd(data);
                 return 0;
             }
             else
@@ -945,7 +963,16 @@ namespace aris
                 else
                 {
                     data.msg_recv->paste(imp->cmd_queue_[(imp->current_cmd_ + imp->cmd_num_) % CMD_POOL_SIZE]);
+                    char *recv_cmd = imp->cmd_queue_[(imp->current_cmd_ + imp->cmd_num_) % CMD_POOL_SIZE];
                     ++imp->cmd_num_;
+                    
+                    if (imp->is_clear_cmd_queue_msg(recv_cmd))
+                    {
+                        // discard all commands, including the executing command
+                        rt_printf("Clear queue cmd received, discard all commands\n");
+                        imp->discard_all_cmd(data);
+                        return 0;
+                    }
                 }
             }
 
@@ -968,6 +995,28 @@ namespace aris
 
             return 0;
         }
+
+        int ControlServer::Imp::discard_all_cmd(aris::control::EthercatController::Data& data)
+        {
+            for (auto &mot_data : *data.motion_raw_data)
+            {
+                mot_data.cmd = aris::control::EthercatMotion::DISABLE;
+            }
+
+            cmd_num_ = 0;
+            count_ = 0;
+            return 0;
+        }
+
+        bool ControlServer::Imp::is_clear_cmd_queue_msg(char *cmd_param)
+        {
+            aris::dynamic::PlanParamBase *param = reinterpret_cast<aris::dynamic::PlanParamBase *>(cmd_param);
+            if (param->cmd_type == CLEAR_CMD_QUEUE)
+                return true;
+
+            return false;
+        }
+
         auto ControlServer::Imp::execute_cmd(int count, char *cmd_param, aris::control::EthercatController::Data &data)->int
         {
             int ret;
@@ -1288,11 +1337,4 @@ namespace aris
         }
     }
 }
-
-
-
-
-
-
-
 

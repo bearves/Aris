@@ -776,9 +776,9 @@ namespace aris
 
             if (control_count % 1000 == 0)
             {
-                motionAtPhy(0).printStatus();
-                motionAtPhy(1).printStatus();
-                motionAtPhy(2).printStatus();
+                motionAtPhy(6).printStatus();
+                motionAtPhy(7).printStatus();
+                motionAtPhy(8).printStatus();
                 rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
             }
 
