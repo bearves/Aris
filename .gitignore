@@ -10,6 +10,8 @@ install_manifest.txt
 
 # for c++
 
+# for python
+*.pyc
 
 # Compiled Object files
 *.slo
