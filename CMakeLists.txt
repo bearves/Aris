@@ -30,8 +30,8 @@ project(aris)
 # set the platform.h, which define the OS platform
 if(UNIX)
 	set(PLATFORM "UNIX")
-	set(CMAKE_C_COMPILER "/usr/bin/gcc")
-	set(CMAKE_CXX_COMPILER "/usr/bin/g++")
+	set(CMAKE_C_COMPILER "/usr/bin/gcc-4.8")
+	set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
 #	set(CMAKE_C_COMPILER "/usr/bin/clang")
 #	set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 endif(UNIX)
@@ -114,21 +114,21 @@ link_directories(${ALL_LINK_DIR})
 set(SOURCE aris_core_msg aris_core_socket aris_core_expression_calculator aris_core_msg_loop aris_core_xml tinyxml2)
 PREPEND_CPP(FULL_SRC src/aris_core ${SOURCE})
 PREPEND_H(FULL_H src/aris_core ${SOURCE})
-add_library(aris_core STATIC ${FULL_SRC} ${FULL_H} src/aris_core/aris_core.h)
+add_library(aris_core SHARED ${FULL_SRC} ${FULL_H} src/aris_core/aris_core.h)
 set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H} src/aris_core/aris_core.h)
 
 # aris control project
 set(SOURCE aris_control_motion aris_control_ethercat aris_control_pipe)
 PREPEND_CPP(FULL_SRC src/aris_control ${SOURCE})
 PREPEND_H(FULL_H src/aris_control ${SOURCE})
-add_library(aris_control STATIC ${FULL_SRC} ${FULL_H} src/aris_control/aris_control.h)
+add_library(aris_control SHARED ${FULL_SRC} ${FULL_H} src/aris_control/aris_control.h)
 set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H} src/aris_control/aris_control.h)
 
 # aris dynamic project
 set(SOURCE aris_dynamic_plan aris_dynamic_kernel aris_dynamic_model)
 PREPEND_CPP(FULL_SRC src/aris_dynamic ${SOURCE})
 PREPEND_H(FULL_H src/aris_dynamic ${SOURCE})
-add_library(aris_dynamic STATIC ${FULL_SRC} ${FULL_H} src/aris_dynamic/aris_dynamic.h)
+add_library(aris_dynamic SHARED ${FULL_SRC} ${FULL_H} src/aris_dynamic/aris_dynamic.h)
 set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H} src/aris_dynamic/aris_dynamic.h)
 
 # aris sensor project
@@ -140,14 +140,14 @@ set(SOURCE aris_sensor_base aris_sensor_imu)
 endif(WIN32)
 PREPEND_CPP(FULL_SRC src/aris_sensor ${SOURCE})
 PREPEND_H(FULL_H src/aris_sensor ${SOURCE})
-add_library(aris_sensor STATIC ${FULL_SRC} ${FULL_H} src/aris_sensor/aris_sensor.h)
+add_library(aris_sensor SHARED ${FULL_SRC} ${FULL_H} src/aris_sensor/aris_sensor.h)
 set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H} src/aris_sensor/aris_sensor.h)
 
 # aris control server project
 set(SOURCE aris_server)
 PREPEND_CPP(FULL_SRC src/aris_server ${SOURCE})
 PREPEND_H(FULL_H src/aris_server ${SOURCE})
-add_library(aris_server STATIC ${FULL_SRC} ${FULL_H})
+add_library(aris_server SHARED ${FULL_SRC} ${FULL_H})
 set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H})
 
 
@@ -224,7 +224,7 @@ endif(WIN32)
 
 
 install(DIRECTORY sh DESTINATION .)
-install(TARGETS aris_core aris_dynamic aris_sensor aris_control aris_server ARCHIVE DESTINATION lib)
+install(TARGETS aris_core aris_dynamic aris_sensor aris_control aris_server ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(FILES ${INCLUDE_HEADER_FILES} src/aris.h DESTINATION include)
 install(DIRECTORY src/aris_control/resource/ DESTINATION resource/aris_control)
 
