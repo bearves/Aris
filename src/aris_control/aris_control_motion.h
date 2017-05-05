@@ -61,6 +61,7 @@ namespace aris
 
                 friend class EthercatController;
         };
+
         class EthercatForceSensor final:public EthercatSlave
         {
             public:

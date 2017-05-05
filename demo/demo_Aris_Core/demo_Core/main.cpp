@@ -146,14 +146,6 @@ int main()
 		cout << "ddd:" << endl << "    " << ddd.a << endl << "    " << ddd.b << endl << "    " << ddd.c << endl;
 
 		cout << (char*)m.data() << endl;
-
-
-
-
-
-
-
-
 		int i;
 		cin >> i;
 	}*/
