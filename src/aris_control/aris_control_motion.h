@@ -12,7 +12,14 @@ namespace aris
 {
     namespace control
     {	
-        class EthercatMotion :public EthercatSlave
+        class EthercatDriver :public EthercatSlave
+        {
+            public:
+                // xml_ele : the object dictionary description element for this device
+                EthercatDriver(const aris::core::XmlElement &xml_ele): EthercatSlave(xml_ele){};
+        };
+
+        class EthercatMotion
         {
             public:
                 enum Cmd
@@ -41,7 +48,9 @@ namespace aris
                 };
 
                 virtual ~EthercatMotion();
-                EthercatMotion(const aris::core::XmlElement &xml_ele, const aris::core::XmlElement &type_xml_ele);
+                EthercatMotion(
+                        const aris::core::XmlElement &xml_ele, 
+                        aris::control::EthercatDriver &physical_driver);
                 auto hasFault()->bool;
                 auto readFeedback(RawData &data)->void;
                 auto writeCommand(const RawData &data)->void;

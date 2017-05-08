@@ -526,7 +526,10 @@ namespace aris
             }
 
             /*begin to load controller_*/
-            controller_->loadXml(std::ref(*doc.RootElement()->FirstChildElement("Controller")->FirstChildElement("EtherCat")));
+            controller_->loadXml(std::ref(*doc.RootElement()->
+                        FirstChildElement("Controller")->
+                        FirstChildElement("EtherCat")));
+
             controller_->setControlStrategy(tg);
 
             /*load connection param*/
@@ -536,8 +539,10 @@ namespace aris
             /*begin to insert cmd nodes*/
             auto pCmds = doc.RootElement()->FirstChildElement("Server")->FirstChildElement("Commands");
 
-            if (pCmds == nullptr) throw std::runtime_error("invalid xml file, because it contains no commands information");
+            if (pCmds == nullptr) 
+                throw std::runtime_error("invalid xml file, because it contains no commands information");
             cmd_struct_map_.clear();
+
             for (auto pChild = pCmds->FirstChildElement(); pChild != nullptr; pChild = pChild->NextSiblingElement())
             {
                 if (cmd_struct_map_.find(pChild->name()) != cmd_struct_map_.end())

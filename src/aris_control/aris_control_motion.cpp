@@ -14,6 +14,7 @@
 #include <iostream>
 #include <map>
 #include <fstream>
+#include <memory>
 #include <algorithm>
 #include "io_mapping_definition.h"
 
@@ -27,10 +28,10 @@ namespace aris
         class EthercatMotion::Imp 
         {
             public:
-                Imp(EthercatMotion *mot) :pFather(mot) {};
+                Imp(EthercatMotion *mot, EthercatDriver *driver) :pFather(mot), pdrv(driver) {};
                 ~Imp() = default;
 
-                std::int32_t SetIOMapping(const aris::core::XmlElement &xml_ele, const aris::core::XmlElement &type_xml_ele)
+                std::int32_t SetIOMapping(const aris::core::XmlElement &xml_ele)
                 {
                     std::string type_name{ xml_ele.Attribute("type") };
                     type_ = type_name;
@@ -60,7 +61,7 @@ namespace aris
                     if (motorState == 0x0000)
                     {
                         /*state is POWERED_OFF, now set it to STOPPED*/
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->controlWord_index, 
                                 io_mapping_->controlWord_subindex, 
                                 static_cast<std::uint16_t>(0x06));
@@ -69,7 +70,7 @@ namespace aris
                     else if (motorState == 0x0001)
                     {
                         /*state is STOPPED, now set it to ENABLED*/
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->controlWord_index, 
                                 io_mapping_->controlWord_subindex, 
                                 static_cast<std::uint16_t>(0x07));
@@ -81,7 +82,7 @@ namespace aris
 
                         current_pos = this->pos();
 
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->controlWord_index, 
                                 io_mapping_->controlWord_subindex, 
                                 static_cast<std::uint16_t>(0x0F));
@@ -92,7 +93,7 @@ namespace aris
                         if (modeRead != mode)
                         {
                             /*state is RUNNING, now change it to desired mode*/
-                            pFather->writePdo(
+                            pdrv->writePdo(
                                     io_mapping_->modeOfOperation_index, 
                                     io_mapping_->modeOfOperation_subindex, 
                                     static_cast<std::uint8_t>(mode));
@@ -104,24 +105,24 @@ namespace aris
                         switch (mode)
                         {
                             case POSITION:
-                                pFather->writePdo(
+                                pdrv->writePdo(
                                         io_mapping_->targetPosition_index, 
                                         io_mapping_->targetPosition_subindex, 
                                         current_pos - pos_offset_);
                                 break;
                             case VELOCITY:
                                 /*velocity loop to set velocity of 0*/
-                                pFather->writePdo(
+                                pdrv->writePdo(
                                         io_mapping_->targetVelocity_index, 
                                         io_mapping_->targetVelocity_subindex, 
                                         static_cast<std::int32_t>(0));
                                 break;
                             case CURRENT:
-                                pFather->writePdo(
+                                pdrv->writePdo(
                                         io_mapping_->targetTorque_index, 
                                         io_mapping_->targetTorque_subindex, 
                                         static_cast<std::int16_t>(0));
-                                //pFather->writePdo(
+                                //pdrv->writePdo(
                                 //	io_mapping_->maxTorque_index, 
                                 //	io_mapping_->maxTorque_subindex, 
                                 //	static_cast<std::int16_t>(1500));
@@ -142,7 +143,7 @@ namespace aris
                     else
                     {
                         /*the motor is in fault*/
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->controlWord_index, 
                                 io_mapping_->controlWord_subindex, 
                                 static_cast<std::uint16_t>(0x80));
@@ -164,7 +165,7 @@ namespace aris
                     else if (motorState == 0x0003 || motorState == 0x0007 || motorState == 0x0000)
                     {
                         /*try to disable*/
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->controlWord_index, 
                                 io_mapping_->controlWord_subindex, 
                                 static_cast<std::uint16_t>(0x06));
@@ -173,7 +174,7 @@ namespace aris
                     else
                     {
                         /*the motor is in fault*/
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->controlWord_index, 
                                 io_mapping_->controlWord_subindex, 
                                 static_cast<std::uint16_t>(0x80));
@@ -200,7 +201,7 @@ namespace aris
                     if (motorState == 0x0007 && mode_Read != HOMING)
                     {
                         // jump out from other modes
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->controlWord_index, 
                                 io_mapping_->controlWord_subindex,
                                 static_cast<uint16_t>(0x06));
@@ -208,7 +209,7 @@ namespace aris
                     }
                     else if (mode_Read != HOMING) // motorState is not running but the mode have not changed to home mode yet
                     {
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->modeOfOperation_index, 
                                 io_mapping_->modeOfOperation_subindex, 
                                 static_cast<std::uint8_t>(HOMING));
@@ -220,27 +221,27 @@ namespace aris
                         if (motorState == 0x0003)
                         {
                             /*state is ENABLED, now set it to RUNNING*/
-                            pFather->writePdo(
+                            pdrv->writePdo(
                                     io_mapping_->controlWord_index, 
                                     io_mapping_->controlWord_subindex, 
                                     static_cast<std::uint16_t>(0x0F));
                         }
                         else if (motorState == 0x0001)
                         {
-                            pFather->writePdo(
+                            pdrv->writePdo(
                                     io_mapping_->controlWord_index, 
                                     io_mapping_->controlWord_subindex, 
                                     static_cast<std::uint16_t>(0x07));
                         }
                         else if (motorState == 0x0000)
                         {
-                            pFather->writePdo(
+                            pdrv->writePdo(
                                     io_mapping_->controlWord_index, 
                                     io_mapping_->controlWord_subindex, 
                                     static_cast<std::uint16_t>(0x06));
                         }
 
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->modeOfOperation_index, 
                                 io_mapping_->modeOfOperation_subindex, 
                                 static_cast<std::uint8_t>(HOMING));
@@ -256,7 +257,7 @@ namespace aris
                         {
                             /*home finished, set mode to running mode, whose value is decided by 
                               enable function, also write velocity to 0*/
-                            pFather->writePdo(
+                            pdrv->writePdo(
                                     io_mapping_->modeOfOperation_index, 
                                     io_mapping_->modeOfOperation_subindex, 
                                     static_cast<uint8_t>(running_mode));
@@ -269,7 +270,7 @@ namespace aris
                             // prepare to start homing
                             if (home_period < 25)
                             {
-                                pFather->writePdo(
+                                pdrv->writePdo(
                                         io_mapping_->controlWord_index, 
                                         io_mapping_->controlWord_subindex,
                                         static_cast<uint16_t>(0x0F));
@@ -278,7 +279,7 @@ namespace aris
                             }
                             // homing have started
                             /*still homing*/
-                            pFather->writePdo(
+                            pdrv->writePdo(
                                     io_mapping_->controlWord_index, 
                                     io_mapping_->controlWord_subindex,
                                     static_cast<uint16_t>(0x1F));
@@ -307,7 +308,7 @@ namespace aris
                     {
                         std::int32_t current_pos = this->pos();
 
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->targetPosition_index, 
                                 io_mapping_->targetPosition_subindex, 
                                 pos - pos_offset_);
@@ -332,7 +333,7 @@ namespace aris
                     }
                     else
                     {
-                        pFather->writePdo(
+                        pdrv->writePdo(
                                 io_mapping_->targetVelocity_index, 
                                 io_mapping_->targetVelocity_subindex,
                                 vel);
@@ -355,7 +356,7 @@ namespace aris
                     }
                     else
                     {
-                        pFather->writePdo(io_mapping_->targetTorque_index, 
+                        pdrv->writePdo(io_mapping_->targetTorque_index, 
                                 io_mapping_->targetTorque_subindex,
                                 cur);
                         return 0;
@@ -365,7 +366,7 @@ namespace aris
                 std::int32_t pos()
                 {
                     std::int32_t pos;
-                    pFather->readPdo(
+                    pdrv->readPdo(
                             io_mapping_->positionActualValue_index, 
                             io_mapping_->positionActualValue_subindex, 
                             pos); 					
@@ -375,7 +376,7 @@ namespace aris
                 std::int32_t vel() 
                 {
                     std::int32_t vel;
-                    pFather->readPdo(
+                    pdrv->readPdo(
                             io_mapping_->velocityActualValue_index, 
                             io_mapping_->velocityActualValue_subindex,
                             vel); 					
@@ -385,7 +386,7 @@ namespace aris
                 std::int32_t cur()
                 {
                     std::int16_t cur;
-                    pFather->readPdo(
+                    pdrv->readPdo(
                             io_mapping_->torqueActualValue_index,
                             io_mapping_->torqueActualValue_subindex,
                             cur);
@@ -395,7 +396,7 @@ namespace aris
                 std::uint8_t operationMode()
                 {
                     std::uint8_t om;
-                    pFather->readPdo(
+                    pdrv->readPdo(
                             io_mapping_->modeOfOperationDisplay_index, 
                             io_mapping_->modeOfOperationDisplay_subindex, 
                             om);
@@ -405,11 +406,17 @@ namespace aris
                 std::uint16_t statusWord()
                 {
                     std::uint16_t sw;
-                    pFather->readPdo(
+                    pdrv->readPdo(
                             io_mapping_->statusWord_index, 
                             io_mapping_->statusWord_subindex,
                             sw);
                     return sw;
+                };
+
+                void writeHomeCountToDevice(std::int32_t home_count){
+                    pdrv->configSdo(
+                            io_mapping_->home_count_sdo_index, 
+                            static_cast<std::int32_t>(home_count));
                 };
 
                 std::int32_t input2count_;
@@ -423,6 +430,7 @@ namespace aris
                 std::unique_ptr<MappingDefinition> io_mapping_;
 
                 EthercatMotion *pFather;
+                EthercatDriver *pdrv;
 
                 std::int32_t pos_offset_{0};
 
@@ -439,10 +447,12 @@ namespace aris
 
         EthercatMotion::~EthercatMotion() {}
 
-        EthercatMotion::EthercatMotion(const aris::core::XmlElement &xml_ele, const aris::core::XmlElement &type_xml_ele) 
-            :EthercatSlave(type_xml_ele), imp_(new EthercatMotion::Imp(this))
+        EthercatMotion::EthercatMotion(
+                const aris::core::XmlElement &xml_ele, 
+                aris::control::EthercatDriver &physical_driver)
+            :imp_(new EthercatMotion::Imp(this, &physical_driver))
         {
-            imp_->SetIOMapping(xml_ele, type_xml_ele);
+            imp_->SetIOMapping(xml_ele);
 
             if (xml_ele.QueryIntAttribute("input2count", &imp_->input2count_) != tinyxml2::XML_NO_ERROR)
             {
@@ -477,7 +487,7 @@ namespace aris
                 throw std::runtime_error("failed to find motion attribute \"abs_id\"");
             }
 
-            configSdo(imp_->io_mapping_->home_count_sdo_index, static_cast<std::int32_t>(-imp_->home_count_));
+            imp_->writeHomeCountToDevice(imp_->home_count_);
         };
 
         auto EthercatMotion::writeCommand(const RawData &data)->void
@@ -591,17 +601,20 @@ namespace aris
 
         struct EthercatController::Imp
         {
+            // The mapping between the physical drivers and the logical axes (abstract axes)
             std::vector<int> map_phy2abs_, map_abs2phy_;
 
             std::function<int(Data&)> strategy_;
             Pipe<aris::core::Msg> msg_pipe_;
             std::atomic_bool is_stopping_;
 
-            std::vector<EthercatMotion *> motion_vec_;
+            std::vector<EthercatDriver *> driver_vec_; // physical driver devices
+            std::vector<std::unique_ptr<EthercatMotion> > motion_vec_; // logical axes
             std::vector<EthercatMotion::RawData> motion_rawdata_, last_motion_rawdata_;
 
             std::vector<EthercatForceSensor *> force_sensor_vec_;
             std::vector<EthercatForceSensor::Data> force_sensor_data_;
+
 
             std::unique_ptr<Pipe<std::vector<EthercatMotion::RawData> > > record_pipe_;
             std::thread record_thread_;
@@ -623,6 +636,7 @@ namespace aris
             }
 
             /*Load all slaves*/
+            imp_->driver_vec_.clear();
             imp_->motion_vec_.clear();
             imp_->force_sensor_vec_.clear();
 
@@ -630,9 +644,9 @@ namespace aris
             for (auto sla = slave_xml->FirstChildElement(); sla; sla = sla->NextSiblingElement())
             {
                 std::string type{ sla->Attribute("type") };
-                if (type == "ElmoSoloWhistle" || type == "Faulhaber")
+                if (type == "ElmoSoloWhistle" || type == "Faulhaber" || type == "Copley")
                 {
-                    imp_->motion_vec_.push_back(addSlave<EthercatMotion>(std::ref(*sla), std::ref(*slaveTypeMap.at(type))));
+                    imp_->driver_vec_.push_back(addSlave<EthercatDriver>(std::ref(*slaveTypeMap.at(type))));
                 }
                 else if (type == "AtiForceSensor")
                 {
@@ -641,6 +655,33 @@ namespace aris
                 else
                 {
                     throw std::runtime_error(std::string("unknown slave type of \"") + type + "\"");
+                }
+            }
+
+            // Load all logic axes
+            auto motion_xml = xml_ele.FirstChildElement("LogicMotionAxis");
+
+            for (auto axis = motion_xml->FirstChildElement(); axis; axis = axis->NextSiblingElement())
+            {
+                std::string type{ axis->Attribute("type") };
+                if (type == "ElmoSoloWhistle" || type == "Faulhaber" || type == "Copley")
+                {
+                    int driver_id = 0;
+                    if (xml_ele.QueryIntAttribute("driver_id", &driver_id) != tinyxml2::XML_NO_ERROR)
+                    {
+                        throw std::runtime_error("failed to find motion attribute \"driver_id\"");
+                    }
+
+                    imp_->motion_vec_.push_back(
+                            std::unique_ptr<EthercatMotion>(new EthercatMotion(
+                                    std::ref(*axis), *(imp_->driver_vec_[driver_id])
+                                    )
+                                )
+                            );
+                }
+                else
+                {
+                    throw std::runtime_error(std::string("unknown axis type of \"") + type + "\"");
                 }
             }
 
