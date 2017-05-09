@@ -92,4 +92,73 @@ public:
 	}
 };
 
+class CopleyAE2Def_A : public MappingDefinition
+{
+public:
+	CopleyAE2Def_A()
+	{
+		targetPosition_index = 0;
+		targetPosition_subindex = 0;
+		targetVelocity_index = 0;
+		targetVelocity_subindex = 1;
+		targetTorque_index = 0;
+		targetTorque_subindex = 2;
+		controlWord_index = 0;
+		controlWord_subindex = 3;
+
+		modeOfOperation_index = 1;
+		modeOfOperation_subindex = 0;
+
+		positionActualValue_index = 2;
+		positionActualValue_subindex = 0;
+		torqueActualValue_index = 2;
+		torqueActualValue_subindex = 1;
+		statusWord_index = 2;
+		statusWord_subindex = 2;
+		modeOfOperationDisplay_index = 2;
+		modeOfOperationDisplay_subindex = 3;
+
+		velocityActualValue_index = 3;
+		velocityActualValue_subindex = 0;
+		digitalInputs_index = 3;
+		digitalInputs_subindex = 0;
+
+		home_count_sdo_index = 5;
+	}
+};
+
+class CopleyAE2Def_B : public MappingDefinition
+{
+public:
+	CopleyAE2Def_B()
+	{
+		targetPosition_index = 4;
+		targetPosition_subindex = 0;
+		targetVelocity_index = 4;
+		targetVelocity_subindex = 1;
+		targetTorque_index = 4;
+		targetTorque_subindex = 2;
+		controlWord_index = 4;
+		controlWord_subindex = 3;
+
+		modeOfOperation_index = 5;
+		modeOfOperation_subindex = 0;
+
+		positionActualValue_index = 6;
+		positionActualValue_subindex = 0;
+		torqueActualValue_index = 6;
+		torqueActualValue_subindex = 1;
+		statusWord_index = 6;
+		statusWord_subindex = 2;
+		modeOfOperationDisplay_index = 6;
+		modeOfOperationDisplay_subindex = 3;
+
+		velocityActualValue_index = 7;
+		velocityActualValue_subindex = 0;
+		digitalInputs_index = 7;
+		digitalInputs_subindex = 0;
+
+		home_count_sdo_index = 11;
+	}
+};
 #endif // !IO_MAPPING_DEFINITION_H

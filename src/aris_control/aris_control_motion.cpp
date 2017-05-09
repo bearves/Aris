@@ -43,6 +43,14 @@ namespace aris
                     {
                         io_mapping_.reset(new FaulhaberDef());
                     }
+                    else if (type_ == "CopleyAE2_A")
+                    {
+                        io_mapping_.reset(new CopleyAE2Def_A());
+                    }
+                    else if (type_ == "CopleyAE2_B")
+                    {
+                        io_mapping_.reset(new CopleyAE2Def_B());
+                    }
                     std::cout << "The io mapping is set to " << type_ << std::endl;
                     return 0;
                 }
@@ -641,12 +649,14 @@ namespace aris
             imp_->force_sensor_vec_.clear();
 
             auto slave_xml = xml_ele.FirstChildElement("Slave");
+            printf("Adding slaves\n");
             for (auto sla = slave_xml->FirstChildElement(); sla; sla = sla->NextSiblingElement())
             {
                 std::string type{ sla->Attribute("type") };
-                if (type == "ElmoSoloWhistle" || type == "Faulhaber" || type == "Copley")
+                if (type == "ElmoSoloWhistle" || type == "Faulhaber" || type == "CopleyAE2")
                 {
                     imp_->driver_vec_.push_back(addSlave<EthercatDriver>(std::ref(*slaveTypeMap.at(type))));
+                    printf("Adding driver %s\n", type.c_str());
                 }
                 else if (type == "AtiForceSensor")
                 {
@@ -661,13 +671,14 @@ namespace aris
             // Load all logic axes
             auto motion_xml = xml_ele.FirstChildElement("LogicMotionAxis");
 
+            printf("Adding LogicMotionAxis\n");
             for (auto axis = motion_xml->FirstChildElement(); axis; axis = axis->NextSiblingElement())
             {
                 std::string type{ axis->Attribute("type") };
-                if (type == "ElmoSoloWhistle" || type == "Faulhaber" || type == "Copley")
+                if (type == "ElmoSoloWhistle" || type == "Faulhaber" || type == "CopleyAE2_A" || type == "CopleyAE2_B")
                 {
                     int driver_id = 0;
-                    if (xml_ele.QueryIntAttribute("driver_id", &driver_id) != tinyxml2::XML_NO_ERROR)
+                    if (axis->QueryIntAttribute("driver_id", &driver_id) != tinyxml2::XML_NO_ERROR)
                     {
                         throw std::runtime_error("failed to find motion attribute \"driver_id\"");
                     }
@@ -817,9 +828,7 @@ namespace aris
 
             if (control_count % 1000 == 0)
             {
-                motionAtPhy(6).printStatus();
-                motionAtPhy(7).printStatus();
-                motionAtPhy(8).printStatus();
+                motionAtPhy(0).printStatus();
                 rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
             }
 
