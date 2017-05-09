@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
+set( CMAKE_EXPORT_COMPILE_COMMANDS 1)
 # add prefix to every string in a variable
 FUNCTION(PREPEND var prefix)
    SET(listVar "")
@@ -65,7 +66,7 @@ set(CMAKE_BUILD_TYPE "Release")
 
 # set include and lib folders
 if(UNIX)
-set(GENERAL_INCL_DIR "/usr/Aris_Dependent")
+#set(GENERAL_INCL_DIR "/usr/Aris_Dependent")
 set(SYSTEM_LINK_LIB pthread)
 set(XENOMAI_INCL_DIR "/usr/xenomai/include")
 set(XENOMAI_LINK_DIR "/usr/xenomai/lib")
@@ -84,9 +85,10 @@ set(OPENNI_LINK_DIR "/usr/lib")
 set(OPENNI_LINK_LIB OpenNI)
 set(ARIS_INCL_DIR ${PROJECT_BINARY_DIR} src/aris_server src/aris_core src/aris_dynamic src/aris_sensor src/aris_control)
 set(ARIS_LINK_LIB aris_server aris_sensor aris_dynamic aris_control aris_core)
+set(EIGEN_INCL_DIR "/usr/local/include/eigen3")
 
 
-set(ALL_INCL_DIR ${ARIS_INCL_DIR} ${OPENNI_INCL_DIR} ${XNNITE_INCL_DIR} ${XSENS_INCL_DIR} ${ETHERLAB_INCL_DIR} ${XENOMAI_INCL_DIR} ${GENERAL_INCL_DIR})
+set(ALL_INCL_DIR ${ARIS_INCL_DIR} ${OPENNI_INCL_DIR} ${XNNITE_INCL_DIR} ${XSENS_INCL_DIR} ${ETHERLAB_INCL_DIR} ${XENOMAI_INCL_DIR} ${GENERAL_INCL_DIR} ${EIGEN_INCL_DIR})
 set(ALL_LINK_DIR ${ARIS_LINK_DIR} ${OPENNI_LINK_DIR} ${XNNITE_LINK_DIR} ${XSENS_LINK_DIR} ${ETHERLAB_LINK_DIR} ${XENOMAI_LINK_DIR})
 set(ALL_LINK_LIB ${ARIS_LINK_LIB} ${OPENNI_LINK_LIB} ${XNNITE_LINK_LIB} ${XSENS_LINK_LIB} ${ETHERLAB_LINK_LIB} ${XENOMAI_LINK_LIB} ${SYSTEM_LINK_LIB})
 endif(UNIX)
@@ -205,21 +207,12 @@ target_link_libraries(demo_Sensor ${ALL_LINK_LIB})
 endif(MAKE_DEMO)
 
 
-
-
-
-
-
-
-
-
-
 ############################################ install aris ############################################
 if(UNIX)
-	set(CMAKE_INSTALL_PREFIX "/usr/aris")
+	set(CMAKE_INSTALL_PREFIX "/usr/aris2")
 endif(UNIX)
 if(WIN32)
-	set(CMAKE_INSTALL_PREFIX "C:/aris")
+	set(CMAKE_INSTALL_PREFIX "C:/aris2")
 endif(WIN32)
 
 
@@ -230,17 +223,6 @@ install(DIRECTORY src/aris_control/resource/ DESTINATION resource/aris_control)
 
 ############################################ uninstall aris ############################################
 if(UNIX)
-	add_custom_target(uninstall rm -r /usr/aris)
+	add_custom_target(uninstall rm -r /usr/aris2)
 endif(UNIX)
-
-
-
-
-
-
-
-
-
-
-
 
