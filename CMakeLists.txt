@@ -66,7 +66,7 @@ set(CMAKE_BUILD_TYPE "Release")
 
 # set include and lib folders
 if(UNIX)
-#set(GENERAL_INCL_DIR "/usr/Aris_Dependent")
+set(GENERAL_INCL_DIR "/usr/Aris_Dependent")
 set(SYSTEM_LINK_LIB pthread)
 set(XENOMAI_INCL_DIR "/usr/xenomai/include")
 set(XENOMAI_LINK_DIR "/usr/xenomai/lib")
@@ -85,8 +85,7 @@ set(OPENNI_LINK_DIR "/usr/lib")
 set(OPENNI_LINK_LIB OpenNI)
 set(ARIS_INCL_DIR ${PROJECT_BINARY_DIR} src/aris_server src/aris_core src/aris_dynamic src/aris_sensor src/aris_control)
 set(ARIS_LINK_LIB aris_server aris_sensor aris_dynamic aris_control aris_core)
-set(EIGEN_INCL_DIR "/usr/local/include/eigen3")
-
+set(EIGEN_INCL_DIR "/usr/Aris_Dependent/Eigen")
 
 set(ALL_INCL_DIR ${ARIS_INCL_DIR} ${OPENNI_INCL_DIR} ${XNNITE_INCL_DIR} ${XSENS_INCL_DIR} ${ETHERLAB_INCL_DIR} ${XENOMAI_INCL_DIR} ${GENERAL_INCL_DIR} ${EIGEN_INCL_DIR})
 set(ALL_LINK_DIR ${ARIS_LINK_DIR} ${OPENNI_LINK_DIR} ${XNNITE_LINK_DIR} ${XSENS_LINK_DIR} ${ETHERLAB_LINK_DIR} ${XENOMAI_LINK_DIR})
@@ -209,10 +208,10 @@ endif(MAKE_DEMO)
 
 ############################################ install aris ############################################
 if(UNIX)
-	set(CMAKE_INSTALL_PREFIX "/usr/aris2")
+	set(CMAKE_INSTALL_PREFIX "/usr/aris")
 endif(UNIX)
 if(WIN32)
-	set(CMAKE_INSTALL_PREFIX "C:/aris2")
+	set(CMAKE_INSTALL_PREFIX "C:/aris")
 endif(WIN32)
 
 
@@ -223,6 +222,6 @@ install(DIRECTORY src/aris_control/resource/ DESTINATION resource/aris_control)
 
 ############################################ uninstall aris ############################################
 if(UNIX)
-	add_custom_target(uninstall rm -r /usr/aris2)
+	add_custom_target(uninstall rm -r /usr/aris)
 endif(UNIX)
 
