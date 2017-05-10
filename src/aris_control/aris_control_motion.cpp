@@ -98,6 +98,7 @@ namespace aris
                     }
                     else if (motorState == 0x0007)
                     {
+                        current_pos = this->pos();
                         if (modeRead != mode)
                         {
                             /*state is RUNNING, now change it to desired mode*/
