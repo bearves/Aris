@@ -66,6 +66,24 @@ namespace aris
 
                     int motorState = (statusWord & 0x000F);
 
+                    /* prepare target pos/vel/trq to the current position/0/0 in any cases */
+                    current_pos = this->pos();
+
+                    pdrv->writePdo(
+                            io_mapping_->targetPosition_index, 
+                            io_mapping_->targetPosition_subindex, 
+                            current_pos - pos_offset_);
+
+                    /* set velocity and torque to 0*/
+                    pdrv->writePdo(
+                            io_mapping_->targetVelocity_index, 
+                            io_mapping_->targetVelocity_subindex, 
+                            static_cast<std::int32_t>(0));
+                    pdrv->writePdo(
+                            io_mapping_->targetTorque_index, 
+                            io_mapping_->targetTorque_subindex, 
+                            static_cast<std::int16_t>(0));
+
                     if (motorState == 0x0000)
                     {
                         /*state is POWERED_OFF, now set it to STOPPED*/
@@ -87,9 +105,6 @@ namespace aris
                     else if (motorState == 0x0003)
                     {
                         /*state is ENABLED, now set it to RUNNING*/
-
-                        current_pos = this->pos();
-
                         pdrv->writePdo(
                                 io_mapping_->controlWord_index, 
                                 io_mapping_->controlWord_subindex, 
@@ -98,10 +113,10 @@ namespace aris
                     }
                     else if (motorState == 0x0007)
                     {
-                        current_pos = this->pos();
+
+                        /*state is RUNNING, now change it to desired mode*/
                         if (modeRead != mode)
                         {
-                            /*state is RUNNING, now change it to desired mode*/
                             pdrv->writePdo(
                                     io_mapping_->modeOfOperation_index, 
                                     io_mapping_->modeOfOperation_subindex, 
@@ -109,35 +124,7 @@ namespace aris
                             return 1;
                         }
 
-
                         /*successfull, but still need to wait for 10 more cycles to make it stable*/
-                        switch (mode)
-                        {
-                            case POSITION:
-                                pdrv->writePdo(
-                                        io_mapping_->targetPosition_index, 
-                                        io_mapping_->targetPosition_subindex, 
-                                        current_pos - pos_offset_);
-                                break;
-                            case VELOCITY:
-                                /*velocity loop to set velocity of 0*/
-                                pdrv->writePdo(
-                                        io_mapping_->targetVelocity_index, 
-                                        io_mapping_->targetVelocity_subindex, 
-                                        static_cast<std::int32_t>(0));
-                                break;
-                            case CURRENT:
-                                pdrv->writePdo(
-                                        io_mapping_->targetTorque_index, 
-                                        io_mapping_->targetTorque_subindex, 
-                                        static_cast<std::int16_t>(0));
-                                //pdrv->writePdo(
-                                //	io_mapping_->maxTorque_index, 
-                                //	io_mapping_->maxTorque_subindex, 
-                                //	static_cast<std::int16_t>(1500));
-                                break;
-                        }
-
                         if (++enable_period >= 10)
                         {	
                             running_mode = mode;
