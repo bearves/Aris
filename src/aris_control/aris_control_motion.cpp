@@ -562,6 +562,7 @@ namespace aris
             data.feedback_cur = imp_->cur();
             data.feedback_pos = imp_->pos();
             data.feedback_vel = imp_->vel();
+            data.status_word  = imp_->statusWord();
         }
 
         auto EthercatMotion::hasFault()->bool
@@ -647,6 +648,10 @@ namespace aris
 
             std::unique_ptr<Pipe<std::vector<EthercatMotion::RawData> > > record_pipe_;
             std::thread record_thread_;
+
+            std::int32_t control_count_;
+
+            const std::int32_t record_interval_ = 2;
         };
 
         EthercatController::~EthercatController() {};
@@ -754,6 +759,7 @@ namespace aris
         auto EthercatController::start()->void
         {
             imp_->is_stopping_ = false;
+            imp_->control_count_ = 0;
 
             /*begin thread which will save data*/
             if(!imp_->record_thread_.joinable())
@@ -772,12 +778,16 @@ namespace aris
                             {
                                 imp_->record_pipe_->recvInNrt(data);
 
-                                file << ++count << " ";
+                                count += imp_->record_interval_;
+
+                                file << count << " ";
 
                                 for (auto &d : data)
                                 {
-                                    file << d.feedback_pos << " ";
+                                    file << d.status_word  << " ";
                                     file << d.target_pos   << " ";
+                                    file << d.feedback_pos << " ";
+                                    file << d.feedback_vel << " ";
                                     file << d.feedback_cur << " ";
                                 }
                                 file << std::endl;
@@ -803,8 +813,6 @@ namespace aris
 
         auto EthercatController::controlStrategy()->void
         {
-            static int control_count = 0;
-
             /*构造传入strategy的参数*/
             Data data{ &imp_->last_motion_rawdata_, &imp_->motion_rawdata_, &imp_->force_sensor_data_, nullptr, nullptr };
 
@@ -839,7 +847,10 @@ namespace aris
             }
 
             /*发送数据到记录的线程*/
-            imp_->record_pipe_->sendToNrt(imp_->motion_rawdata_);
+            if (imp_->control_count_ % imp_->record_interval_)
+            {
+                imp_->record_pipe_->sendToNrt(imp_->motion_rawdata_);
+            }
 
             /*向外发送消息*/
             if (data.msg_send)
@@ -847,13 +858,13 @@ namespace aris
                 this->msgPipe().sendToNrt(*data.msg_send);
             }
 
-            if (control_count % 1000 == 0)
+            if (imp_->control_count_ % 1000 == 0)
             {
                 motionAtPhy(0).printStatus();
                 rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
             }
 
-            control_count ++;
+            imp_->control_count_ ++;
         }
     }
 }

@@ -1208,7 +1208,8 @@ namespace aris
                 if (param.active_motor[i])
                 {
                     data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::RUN;
-                    data.motion_raw_data->operator[](i).target_pos = static_cast<std::int32_t>(model_->motionPool().at(i).motPos() * controller_->motionAtAbs(i).pos2countRatio());
+                    data.motion_raw_data->operator[](i).target_pos = 
+                        static_cast<std::int32_t>(model_->motionPool().at(i).motPos() * controller_->motionAtAbs(i).pos2countRatio());
                 }
             }
 
@@ -1217,50 +1218,65 @@ namespace aris
             {
                 if (data.last_motion_raw_data->at(i).cmd == aris::control::EthercatMotion::RUN)
                 {
-                    if (param.if_check_pos_max && (data.motion_raw_data->at(i).target_pos > imp->controller_->motionAtAbs(i).maxPosCount()))
+                    if (param.if_check_pos_max && 
+                        (data.motion_raw_data->at(i).target_pos > imp->controller_->motionAtAbs(i).maxPosCount()))
                     {
                         rt_printf("Motor %i's target position is bigger than its MAX permitted value in count:%d\n", i, imp->count_);
                         rt_printf("The min, max and current count are:\n");
                         for (std::size_t i = 0; i<imp->controller_->motionNum(); ++i)
                         {
-                            rt_printf("%d   %d   %d\n", imp->controller_->motionAtAbs(i).minPosCount(), imp->controller_->motionAtAbs(i).maxPosCount(), data.motion_raw_data->at(i).target_pos);
+                            rt_printf("%d   %d   %d\n", 
+                                    imp->controller_->motionAtAbs(i).minPosCount(), 
+                                    imp->controller_->motionAtAbs(i).maxPosCount(), 
+                                    data.motion_raw_data->at(i).target_pos);
                         }
                         rt_printf("All commands in command queue are discarded, please try to RECOVER\n");
                         imp->cmd_num_ = 1;//因为这里为0退出，因此之后在tg中回递减cmd_num_,所以这里必须为1
                         imp->count_ = 0;
 
                         // 发现不连续，那么使用上一个成功的cmd，以便等待修复 //
-                        for (std::size_t i = 0; i < imp->controller_->motionNum(); ++i)data.motion_raw_data->operator[](i) = data.last_motion_raw_data->operator[](i);
+                        for (std::size_t i = 0; i < imp->controller_->motionNum(); ++i)
+                            data.motion_raw_data->operator[](i) = data.last_motion_raw_data->operator[](i);
 
                         return 0;
                     }
 
-                    if (param.if_check_pos_min && (data.motion_raw_data->at(i).target_pos < imp->controller_->motionAtAbs(i).minPosCount()))
+                    if (param.if_check_pos_min && 
+                        (data.motion_raw_data->at(i).target_pos < imp->controller_->motionAtAbs(i).minPosCount()))
                     {
                         rt_printf("Motor %i's target position is smaller than its MIN permitted value in count:%d\n", i, imp->count_);
                         rt_printf("The min, max and current count are:\n");
                         for (std::size_t i = 0; i<imp->controller_->motionNum(); ++i)
                         {
-                            rt_printf("%d   %d   %d\n", imp->controller_->motionAtAbs(i).minPosCount(), imp->controller_->motionAtAbs(i).maxPosCount(), data.motion_raw_data->at(i).target_pos);
+                            rt_printf("%d   %d   %d\n", 
+                                    imp->controller_->motionAtAbs(i).minPosCount(), 
+                                    imp->controller_->motionAtAbs(i).maxPosCount(), 
+                                    data.motion_raw_data->at(i).target_pos);
                         }
                         rt_printf("All commands in command queue are discarded, please try to RECOVER\n");
                         imp->cmd_num_ = 1;//因为这里为0退出，因此之后在tg中回递减cmd_num_,所以这里必须为1
                         imp->count_ = 0;
 
                         // 发现不连续，那么使用上一个成功的cmd，以便等待修复 //
-                        for (std::size_t i = 0; i < imp->controller_->motionNum(); ++i)data.motion_raw_data->operator[](i) = data.last_motion_raw_data->operator[](i);
+                        for (std::size_t i = 0; i < imp->controller_->motionNum(); ++i)
+                            data.motion_raw_data->operator[](i) = data.last_motion_raw_data->operator[](i);
 
                         return 0;
                     }
 
-                    if (param.if_check_pos_continuous && (std::abs(data.last_motion_raw_data->at(i).target_pos - data.motion_raw_data->at(i).target_pos)>0.0012*imp->controller_->motionAtAbs(i).maxVelCount()))
+                    if (param.if_check_pos_continuous && 
+                        (std::abs(data.last_motion_raw_data->at(i).target_pos - data.motion_raw_data->at(i).target_pos)
+                            > 0.0012*imp->controller_->motionAtAbs(i).maxVelCount())
+                       )
                     {
                         rt_printf("Motor %i's target position is not continuous in count:%d\n", i, imp->count_);
 
                         rt_printf("The input of last and this count are:\n");
                         for (std::size_t i = 0; i<imp->controller_->motionNum(); ++i)
                         {
-                            rt_printf("%d   %d\n", data.last_motion_raw_data->at(i).target_pos, data.motion_raw_data->at(i).target_pos);
+                            rt_printf("%d   %d\n", 
+                                    data.last_motion_raw_data->at(i).target_pos, 
+                                    data.motion_raw_data->at(i).target_pos);
                         }
 
                         rt_printf("All commands in command queue are discarded, please try to RECOVER\n");
@@ -1268,7 +1284,8 @@ namespace aris
                         imp->count_ = 0;
 
                         // 发现不连续，那么使用上一个成功的cmd，以便等待修复 //
-                        for (std::size_t i = 0; i < imp->controller_->motionNum(); ++i)data.motion_raw_data->operator[](i) = data.last_motion_raw_data->operator[](i);
+                        for (std::size_t i = 0; i < imp->controller_->motionNum(); ++i)
+                            data.motion_raw_data->operator[](i) = data.last_motion_raw_data->operator[](i);
 
                         return 0;
                     }
