@@ -184,9 +184,40 @@ namespace aris
 
                     if(is_waiting_mode)
                     {
-                        auto ret = this->enable(running_mode);
-                        is_waiting_mode = (ret == 0 ? false : true);
-                        return ret;
+                        // wait for 25 counts preparing the mode-switch
+                        // from HOMING to RUNNING
+                        if (waiting_count < 25)
+                        {
+                            std::int32_t current_pos = this->pos();
+
+                            pdrv->writePdo(
+                                    io_mapping_->targetPosition_index, 
+                                    io_mapping_->targetPosition_subindex, 
+                                    current_pos - pos_offset_);
+
+                            /* set velocity and torque to 0*/
+                            pdrv->writePdo(
+                                    io_mapping_->targetVelocity_index, 
+                                    io_mapping_->targetVelocity_subindex, 
+                                    static_cast<std::int32_t>(0));
+                            pdrv->writePdo(
+                                    io_mapping_->targetTorque_index, 
+                                    io_mapping_->targetTorque_subindex, 
+                                    static_cast<std::int16_t>(0));
+
+                            pdrv->writePdo(
+                                    io_mapping_->controlWord_index, 
+                                    io_mapping_->controlWord_subindex,
+                                    static_cast<uint16_t>(0x0F));
+
+                            waiting_count++;
+                            return 1;
+                        }
+                        else{
+                            auto ret = this->enable(running_mode);
+                            is_waiting_mode = (ret == 0 ? false : true);
+                            return ret;
+                        }
                     }
 
                     std::uint16_t statusWord = this->statusWord();
@@ -254,10 +285,11 @@ namespace aris
                             /*home finished, set mode to running mode, whose value is decided by 
                               enable function, also write velocity to 0*/
                             pdrv->writePdo(
-                                    io_mapping_->modeOfOperation_index, 
-                                    io_mapping_->modeOfOperation_subindex, 
-                                    static_cast<uint8_t>(running_mode));
+                                    io_mapping_->controlWord_index, 
+                                    io_mapping_->controlWord_subindex,
+                                    static_cast<uint16_t>(0x1F));
 
+                            waiting_count = 0;
                             is_waiting_mode = true;
                             return 1;
                         }
@@ -435,6 +467,7 @@ namespace aris
 
                 int enable_period{ 0 };
                 int home_period { 0 };
+                int waiting_count { 0 };
 
                 std::uint8_t running_mode{ POSITION };
         };
@@ -726,31 +759,31 @@ namespace aris
             if(!imp_->record_thread_.joinable())
                 imp_->record_thread_ = std::thread([this]()
                         {
-                        static std::fstream file;
-                        std::string name = aris::core::logFileName();
-                        name.replace(name.rfind("log.txt"), std::strlen("data.txt"), "data.txt");
-                        file.open(name.c_str(), std::ios::out | std::ios::trunc);
+                            static std::fstream file;
+                            std::string name = aris::core::logFileName();
+                            name.replace(name.rfind("log.txt"), std::strlen("data.txt"), "data.txt");
+                            file.open(name.c_str(), std::ios::out | std::ios::trunc);
 
-                        std::vector<EthercatMotion::RawData> data;
-                        data.resize(imp_->motion_vec_.size());
+                            std::vector<EthercatMotion::RawData> data;
+                            data.resize(imp_->motion_vec_.size());
 
-                        long long count = -1;
-                        while (!imp_->is_stopping_)
-                        {
-                        imp_->record_pipe_->recvInNrt(data);
+                            long long count = -1;
+                            while (!imp_->is_stopping_)
+                            {
+                                imp_->record_pipe_->recvInNrt(data);
 
-                        file << ++count << " ";
+                                file << ++count << " ";
 
-                        for (auto &d : data)
-                        {
-                        file << d.feedback_pos << " ";
-                        file << d.target_pos << " ";
-                        file << d.feedback_cur << " ";
-                        }
-                        file << std::endl;
-                        }
+                                for (auto &d : data)
+                                {
+                                    file << d.feedback_pos << " ";
+                                    file << d.target_pos   << " ";
+                                    file << d.feedback_cur << " ";
+                                }
+                                file << std::endl;
+                            }
 
-                        file.close();
+                            file.close();
                         });
 
             this->EthercatMaster::start();
