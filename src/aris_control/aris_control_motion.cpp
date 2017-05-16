@@ -858,11 +858,11 @@ namespace aris
                 this->msgPipe().sendToNrt(*data.msg_send);
             }
 
-            if (imp_->control_count_ % 1000 == 0)
-            {
-                motionAtPhy(0).printStatus();
-                rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
-            }
+            //if (imp_->control_count_ % 1000 == 0)
+            //{
+            //    motionAtPhy(0).printStatus();
+            //    rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
+            //}
 
             imp_->control_count_ ++;
         }
