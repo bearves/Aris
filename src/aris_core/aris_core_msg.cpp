@@ -260,7 +260,7 @@ namespace aris
 			if (seconds > 0)
 			{
 				std::cout << txt << std::endl;
-				std::abort();
+				//std::abort();
 			}
 
 			data_ = new char[RT_MSG_LENGTH + sizeof(MsgHeader)];
