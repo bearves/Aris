@@ -942,17 +942,24 @@ namespace aris
 
             if (error_motor != data.motion_raw_data->end())
             {
-                if (fault_count++ % 1000 == 0)
+                fault_count++;
+                if (fault_count % 100 == 0)
                 {
                     for (auto &mot_data : *data.motion_raw_data)rt_printf("%d ", mot_data.ret);
 
                     rt_printf("\n");
 
-                    rt_printf("Some motor is in fault, now try to disable all motors\n");
-                    rt_printf("All commands in command queue are discarded\n");
+                    rt_printf("Some motor is in fault, all motors would be disabled if \
+                               such fault lasts for 1 second\n");
                 }
-                imp->discard_all_cmd(data);
-                return 0;
+                
+                if (fault_count % 1000 == 0)
+                {
+                    imp->discard_all_cmd(data);
+                    rt_printf("All commands in command queue are discarded\n");
+                    rt_printf("All motors are to be disabled now\n");
+                    return 0;
+                }
             }
             else
             {
