@@ -500,7 +500,7 @@ namespace aris
                 // 储存控制器等 //
                 aris::control::EthercatController *controller_;
                 std::unique_ptr<aris::dynamic::Model> model_;
-                std::unique_ptr<aris::sensor::IMU> imu_;
+//                std::unique_ptr<aris::sensor::IMU> imu_;
 
                 // 结束时的callback //
                 std::function<void(void)> on_exit_callback_{nullptr};
@@ -515,7 +515,7 @@ namespace aris
             model_->loadXml(doc);
 
             /*begin to create imu*/
-            if (doc.RootElement()->FirstChildElement("Sensors")->FirstChildElement("IMU")->Attribute("active", "true"))
+/*            if (doc.RootElement()->FirstChildElement("Sensors")->FirstChildElement("IMU")->Attribute("active", "true"))
             {
                 std::cout << "imu found" << std::endl;
                 imu_.reset(new aris::sensor::IMU(doc.RootElement()->FirstChildElement("Sensors")->FirstChildElement("IMU")));
@@ -524,6 +524,7 @@ namespace aris
             {
                 std::cout << "imu not find" << std::endl;
             }
+*/
 
             /*begin to load controller_*/
             controller_->loadXml(std::ref(*doc.RootElement()->
@@ -633,7 +634,7 @@ namespace aris
             {
                 is_running_ = true;
                 motion_pos_.resize(controller_->motionNum());
-                if (imu_)imu_->start();
+//                if (imu_)imu_->start();
                 controller_->start();
             }
         }
@@ -642,7 +643,7 @@ namespace aris
             if (is_running_)
             {
                 controller_->stop();
-                if (imu_)imu_->stop();
+//                if (imu_)imu_->stop();
                 is_running_ = false;
             }
         }
@@ -1184,10 +1185,10 @@ namespace aris
             static ControlServer::Imp *imp = ControlServer::instance().imp.get();
 
             // 获取陀螺仪传感器数据 //
-            aris::sensor::SensorData<aris::sensor::ImuData> imuDataProtected;
+/*            aris::sensor::SensorData<aris::sensor::ImuData> imuDataProtected;
             if (imu_) imuDataProtected = imu_->getSensorData();
             param.imu_data = &imuDataProtected.get();
-
+*/
             // 获取力传感器数据与电机数据 //
             param.force_data = data.force_sensor_data;
             param.motion_raw_data = data.motion_raw_data;

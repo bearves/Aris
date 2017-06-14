@@ -118,15 +118,15 @@ private:
 		}
 
 
-		if(opendir("log")==nullptr)
+		if(opendir("/var/log/aris")==nullptr)
 		{
 			umask(0);
-			if(mkdir("log",0777 )!=0)
+			if(mkdir("/var/log/aris",0777 )!=0)
 						throw std::logic_error("can't create log folder\n");
 		}
 
 
-		strcat(name, "log/");
+		strcat(name, "/var/log/aris/");
 #endif
 
 		time(&beginTime);
