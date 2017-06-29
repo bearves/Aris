@@ -370,7 +370,7 @@ namespace aris
         {
             //load product id...
             imp_->product_code_ = std::stoi(xml_ele.Attribute("product_code"), nullptr, 0);
-            imp_->vender_id_ = std::stoi(xml_ele.Attribute("vender_id"), nullptr, 0);
+            imp_->vender_id_ = std::stoul(xml_ele.Attribute("vender_id"), nullptr, 0);
             imp_->alias_ = std::stoi(xml_ele.Attribute("alias"), nullptr, 0);
             imp_->distributed_clock_.reset(new std::int32_t);
 
@@ -392,10 +392,14 @@ namespace aris
             }
 
             // load SDO
-            auto sdo_xml_ele = xml_ele.FirstChildElement("SDO");
-            for (auto s = sdo_xml_ele->FirstChildElement(); s; s = s->NextSiblingElement())
+
+            if (xml_ele.FirstChildElement("SDO"))
             {
-                imp_->sdo_vec_.push_back(std::unique_ptr<Imp::Sdo>(new Imp::Sdo(*s, imp_.get())));
+                auto sdo_xml_ele = xml_ele.FirstChildElement("SDO");
+                for (auto s = sdo_xml_ele->FirstChildElement(); s; s = s->NextSiblingElement())
+                {
+                    imp_->sdo_vec_.push_back(std::unique_ptr<Imp::Sdo>(new Imp::Sdo(*s, imp_.get())));
+                }
             }
 
             // create ecrt structs
