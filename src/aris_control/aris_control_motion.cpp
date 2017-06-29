@@ -672,31 +672,31 @@ namespace aris
 				else if (this->zeroing_count_left.at(i) == 0)
 				{
 					zero_pdo_value = 0;
-+					this->writePdo(7, i, zero_pdo_value);
-+					this->zeroing_count_left.at(i)--;
-+					rt_printf("zeroing sensor %d\n",i);
-+				}
-+				else
-+				{
-+					zero_pdo_value = 0;
-+					this->writePdo(7, i, zero_pdo_value);
-+				}
-+
-+				data.force.at(i).Fx = raw_data_.force.at(i).Fx;
-+				data.force.at(i).Fy = raw_data_.force.at(i).Fy;
-+				data.force.at(i).Fz = raw_data_.force.at(i).Fz;
-+				data.force.at(i).Mx = raw_data_.force.at(i).Mx;
-+				data.force.at(i).My = raw_data_.force.at(i).My;
-+				data.force.at(i).Mz = raw_data_.force.at(i).Mz;
-+
-+			}
-+		}
-+
-+		auto EthercatForceSensorRuiCongCombo::setRatio(double f_ratio, double t_ratio)->void
-+		{
-+			this->force_ratio_ = f_ratio;
-+			this->torque_ratio_ = t_ratio;
-+		}
+					this->writePdo(7, i, zero_pdo_value);
+					this->zeroing_count_left.at(i)--;
+					rt_printf("zeroing sensor %d\n",i);
+				}
+				else
+				{
+					zero_pdo_value = 0;
+					this->writePdo(7, i, zero_pdo_value);
+				}
+
+				data.force.at(i).Fx = raw_data_.force.at(i).Fx;
+				data.force.at(i).Fy = raw_data_.force.at(i).Fy;
+				data.force.at(i).Fz = raw_data_.force.at(i).Fz;
+				data.force.at(i).Mx = raw_data_.force.at(i).Mx;
+				data.force.at(i).My = raw_data_.force.at(i).My;
+				data.force.at(i).Mz = raw_data_.force.at(i).Mz;
+
+			}
+		}
+
+		auto EthercatForceSensorRuiCongCombo::setRatio(double f_ratio, double t_ratio)->void
+		{
+			this->force_ratio_ = f_ratio;
+			this->torque_ratio_ = t_ratio;
+		}
 
 		auto EthercatForceSensorRuiCongCombo::requireZeroing(int sensor_id)->void
 		{

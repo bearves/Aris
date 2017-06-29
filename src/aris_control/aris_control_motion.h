@@ -97,65 +97,65 @@ namespace aris
                 std::int32_t force_ratio_, torque_ratio_;
         };
 
-+		class EthercatForceSensorRuiCongCombo final:public EthercatSlave
-+		{
-+		public:
-+			struct RuiCongComboData
-+			{
-+				union Data
-+				{
-+					struct { double Fx, Fy, Fz, Mx, My, Mz; };
-+					double fce[6];
-+				};
-+				std::array<Data,6> force;
-+				std::array<bool, 6> isZeroingRequested = { {false,false,false,false,false,false} };
-+			};
-+			EthercatForceSensorRuiCongCombo(const aris::core::XmlElement &xml_ele) : EthercatSlave(xml_ele) {};
-+
-+			auto readData(RuiCongComboData &data)->void;
-+			
-+			// set ratio
-+			auto setRatio(double f_ratio=0.001,double t_ratio=0.001)->void;// kg, kgm
-+
-+			// clear
-+			auto requireZeroing(int sensor_id) -> void;
-+
-+		protected:
-+			virtual auto init()->void override
-+			{
-+				this->setRatio();
-+				//clear values
-+				for (int i = 0; i < 6; i++)
-+				{
-+					base_data_.force.at(i).Fx = 0;
-+					base_data_.force.at(i).Fy = 0;
-+					base_data_.force.at(i).Fz = 0;
-+					base_data_.force.at(i).Mx = 0;
-+					base_data_.force.at(i).My = 0;
-+					base_data_.force.at(i).Mz = 0;
-+
-+					sum_data_.force.at(i).Fx = 0;
-+					sum_data_.force.at(i).Fy = 0;
-+					sum_data_.force.at(i).Fz = 0;
-+					sum_data_.force.at(i).Mx = 0;
-+					sum_data_.force.at(i).My = 0;
-+					sum_data_.force.at(i).Mz = 0;
-+				}
-+
-+			};
-+
-+			/*static const int ZEROING_COUNT = 500;*/
-+			static const int ZEROING_COUNT = 1;
-+
-+			std::array<int, 6> zeroing_count_left = { { -1,-1,-1,-1,-1,-1 } };
-+			// for zeroing
-+			RuiCongComboData base_data_;
-+			RuiCongComboData sum_data_;
-+			RuiCongComboData raw_data_;
-+
-+			double force_ratio_=0.001, torque_ratio_=0.001;
-+		};
-+
+		class EthercatForceSensorRuiCongCombo final:public EthercatSlave
+		{
+		public:
+			struct RuiCongComboData
+			{
+				union Data
+				{
+					struct { double Fx, Fy, Fz, Mx, My, Mz; };
+					double fce[6];
+				};
+				std::array<Data,6> force;
+				std::array<bool, 6> isZeroingRequested = { {false,false,false,false,false,false} };
+			};
+			EthercatForceSensorRuiCongCombo(const aris::core::XmlElement &xml_ele) : EthercatSlave(xml_ele) {};
+
+			auto readData(RuiCongComboData &data)->void;
+			
+			// set ratio
+			auto setRatio(double f_ratio=0.001,double t_ratio=0.001)->void;// kg, kgm
+
+			// clear
+			auto requireZeroing(int sensor_id) -> void;
+
+		protected:
+			virtual auto init()->void override
+			{
+				this->setRatio();
+				//clear values
+				for (int i = 0; i < 6; i++)
+				{
+					base_data_.force.at(i).Fx = 0;
+					base_data_.force.at(i).Fy = 0;
+					base_data_.force.at(i).Fz = 0;
+					base_data_.force.at(i).Mx = 0;
+					base_data_.force.at(i).My = 0;
+					base_data_.force.at(i).Mz = 0;
+
+					sum_data_.force.at(i).Fx = 0;
+					sum_data_.force.at(i).Fy = 0;
+					sum_data_.force.at(i).Fz = 0;
+					sum_data_.force.at(i).Mx = 0;
+					sum_data_.force.at(i).My = 0;
+					sum_data_.force.at(i).Mz = 0;
+				}
+
+			};
+
+			/*static const int ZEROING_COUNT = 500;*/
+			static const int ZEROING_COUNT = 1;
+
+			std::array<int, 6> zeroing_count_left = { { -1,-1,-1,-1,-1,-1 } };
+			// for zeroing
+			RuiCongComboData base_data_;
+			RuiCongComboData sum_data_;
+			RuiCongComboData raw_data_;
+
+			double force_ratio_=0.001, torque_ratio_=0.001;
+		};
+
 
         class EthercatController :public EthercatMaster
         {
