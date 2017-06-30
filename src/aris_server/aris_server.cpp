@@ -686,7 +686,10 @@ namespace aris
                 }
                 if (cmd == "exit")
                 {
-                    if (is_running_)stop();
+                    if (is_running_)
+                        stop();
+
+                    rt_printf("Server Imp stopped\n");
 
                     std::thread exit_callback([this]() 
                             {

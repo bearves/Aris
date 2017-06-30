@@ -100,6 +100,7 @@ namespace aris
 		class EthercatForceSensorRuiCongCombo final:public EthercatSlave
 		{
 		public:
+            static const size_t CHANNEL_COUNTS = 1;
 			struct RuiCongComboData
 			{
 				union Data
@@ -107,9 +108,18 @@ namespace aris
 					struct { double Fx, Fy, Fz, Mx, My, Mz; };
 					double fce[6];
 				};
-				std::array<Data,6> force;
-				std::array<bool, 6> isZeroingRequested = { {false,false,false,false,false,false} };
+				std::array<Data, CHANNEL_COUNTS> force;
+				std::array<bool, CHANNEL_COUNTS> isZeroingRequested;
+
+                RuiCongComboData()
+                {
+                    for (int i = 0; i < CHANNEL_COUNTS; i++)
+                    {
+                        isZeroingRequested[i] = false;
+                    }
+                };
 			};
+
 			EthercatForceSensorRuiCongCombo(const aris::core::XmlElement &xml_ele) : EthercatSlave(xml_ele) {};
 
 			auto readData(RuiCongComboData &data)->void;
@@ -125,7 +135,7 @@ namespace aris
 			{
 				this->setRatio();
 				//clear values
-				for (int i = 0; i < 6; i++)
+				for (int i = 0; i < CHANNEL_COUNTS; i++)
 				{
 					base_data_.force.at(i).Fx = 0;
 					base_data_.force.at(i).Fy = 0;
@@ -140,6 +150,8 @@ namespace aris
 					sum_data_.force.at(i).Mx = 0;
 					sum_data_.force.at(i).My = 0;
 					sum_data_.force.at(i).Mz = 0;
+
+                    zeroing_count_left[i] = -1;
 				}
 
 			};
@@ -147,7 +159,7 @@ namespace aris
 			/*static const int ZEROING_COUNT = 500;*/
 			static const int ZEROING_COUNT = 1;
 
-			std::array<int, 6> zeroing_count_left = { { -1,-1,-1,-1,-1,-1 } };
+			std::array<int, CHANNEL_COUNTS> zeroing_count_left;
 			// for zeroing
 			RuiCongComboData base_data_;
 			RuiCongComboData sum_data_;

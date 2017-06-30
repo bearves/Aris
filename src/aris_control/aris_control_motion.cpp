@@ -634,52 +634,52 @@ namespace aris
 			
 			int32_t value=0;
 			float* pdo_result=NULL;
-			for(std::size_t i=0;i<data.force.size();i++)
+			for( std::size_t i = 0; i < data.force.size(); i++)
 			{
 				// read 6 element in one loop
 				this->readPdo(i, 0, value);
 				pdo_result = (float*)&value;
-				raw_data_.force.at(i).Fx = *pdo_result*force_ratio_;
+				raw_data_.force.at(i).Fx = *pdo_result * force_ratio_;
 				
 				this->readPdo(i, 1, value);
 				pdo_result = (float*)&value;
-				raw_data_.force.at(i).Fy = *pdo_result*force_ratio_;
+				raw_data_.force.at(i).Fy = *pdo_result * force_ratio_;
 
 				this->readPdo(i, 2, value);
 				pdo_result = (float*)&value;
-				raw_data_.force.at(i).Fz = *pdo_result*force_ratio_;
+				raw_data_.force.at(i).Fz = *pdo_result * force_ratio_;
 
 				this->readPdo(i, 3, value);
 				pdo_result = (float*)&value;
-				raw_data_.force.at(i).Mx = *pdo_result*torque_ratio_;
+				raw_data_.force.at(i).Mx = *pdo_result * torque_ratio_;
 
 				this->readPdo(i, 4, value);
 				pdo_result = (float*)&value;
-				raw_data_.force.at(i).My = *pdo_result*torque_ratio_;
+				raw_data_.force.at(i).My = *pdo_result * torque_ratio_;
 
 				this->readPdo(i, 5, value);
 				pdo_result = (float*)&value;
-				raw_data_.force.at(i).Mz = *pdo_result*torque_ratio_;
+				raw_data_.force.at(i).Mz = *pdo_result * torque_ratio_;
 
 				std::uint8_t zero_pdo_value;
 
 				if (this->zeroing_count_left.at(i) == 1)
 				{
 					zero_pdo_value = 1;
-					this->writePdo(7, i, zero_pdo_value);
+					this->writePdo(CHANNEL_COUNTS+1, i, zero_pdo_value);
 					this->zeroing_count_left.at(i)--;
 				}
 				else if (this->zeroing_count_left.at(i) == 0)
 				{
 					zero_pdo_value = 0;
-					this->writePdo(7, i, zero_pdo_value);
+					this->writePdo(CHANNEL_COUNTS+1, i, zero_pdo_value);
 					this->zeroing_count_left.at(i)--;
 					rt_printf("zeroing sensor %d\n",i);
 				}
 				else
 				{
 					zero_pdo_value = 0;
-					this->writePdo(7, i, zero_pdo_value);
+					this->writePdo(CHANNEL_COUNTS+1, i, zero_pdo_value);
 				}
 
 				data.force.at(i).Fx = raw_data_.force.at(i).Fx;
@@ -700,6 +700,8 @@ namespace aris
 
 		auto EthercatForceSensorRuiCongCombo::requireZeroing(int sensor_id)->void
 		{
+            if (sensor_id >= CHANNEL_COUNTS)  // check if this device have such sensor channel
+                return;
 			
 			if (this->zeroing_count_left.at(sensor_id) < 0)//this means it is not in a zeroing process
 			{
@@ -891,6 +893,7 @@ namespace aris
                             }
 
                             file.close();
+                            std::cout << "record thread finished"<< std::endl;
                         });
 
             this->EthercatMaster::start();
@@ -899,6 +902,8 @@ namespace aris
         auto EthercatController::stop()->void
         {
             this->EthercatMaster::stop();
+            rt_printf("Ethercat Master stopped\n");
+            imp_->record_thread_.detach();
         }
 
         auto EthercatController::motionNum()->std::size_t { return imp_->motion_vec_.size(); };
@@ -960,14 +965,17 @@ namespace aris
                 imp_->last_motion_rawdata_[i] = imp_->motion_rawdata_[i];
             }
 
-			for (std::size_t i = 0; i < imp_->force_sensor_rcc_data_.at(0).force.size(); i++)
+			if (imp_->force_sensor_rcc_vec_.size() > 0)
 			{
-				if (imp_->force_sensor_rcc_data_.at(0).isZeroingRequested.at(i))
-				{
-					imp_->force_sensor_rcc_vec_.at(0)->requireZeroing(i);
-					imp_->force_sensor_rcc_data_.at(0).isZeroingRequested.at(i) = false;
-				}
-			}
+                for (std::size_t i = 0; i < imp_->force_sensor_rcc_data_.at(0).force.size(); i++)
+                {
+                    if (imp_->force_sensor_rcc_data_.at(0).isZeroingRequested.at(i))
+                    {
+                        imp_->force_sensor_rcc_vec_.at(0)->requireZeroing(i);
+                        imp_->force_sensor_rcc_data_.at(0).isZeroingRequested.at(i) = false;
+                    }
+                }
+            }
 
             /*发送数据到记录的线程*/
             if (imp_->control_count_ % imp_->record_interval_)
@@ -981,11 +989,20 @@ namespace aris
                 this->msgPipe().sendToNrt(*data.msg_send);
             }
 
-            //if (imp_->control_count_ % 1000 == 0)
-            //{
+            if (imp_->control_count_ % 1000 == 0)
+            {
             //    motionAtPhy(0).printStatus();
             //    rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
-            //}
+                if (imp_->force_sensor_rcc_vec_.size() > 0){
+                    rt_printf("%f\t%f\t%f\t%f\t%f\t%f\n", 
+                            imp_->force_sensor_rcc_data_[0].force[0].Fx,
+                            imp_->force_sensor_rcc_data_[0].force[0].Fy,
+                            imp_->force_sensor_rcc_data_[0].force[0].Fz,
+                            imp_->force_sensor_rcc_data_[0].force[0].Mx,
+                            imp_->force_sensor_rcc_data_[0].force[0].My,
+                            imp_->force_sensor_rcc_data_[0].force[0].Mz);
+                }
+            }
 
             imp_->control_count_ ++;
         }

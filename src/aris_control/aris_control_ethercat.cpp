@@ -582,6 +582,7 @@ namespace aris
         {
             if (!imp_->is_running_)throw std::runtime_error("master is not running, so can't stop");
 
+            rt_printf("EthercatMaster is to stop()\n");
             imp_->is_stopping_ = true;
 #ifdef UNIX
             rt_task_delete(&imp_->rt_task_);
