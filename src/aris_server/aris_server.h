@@ -8,7 +8,6 @@
 
 #include <aris_core.h>
 #include <aris_control.h>
-#include <aris_sensor.h>
 #include <aris_dynamic.h>
 
 
@@ -40,8 +39,8 @@ namespace aris
 			bool if_check_pos_min{ true };
 			bool if_check_pos_max{ true };
 			bool if_check_pos_continuous{ true };
-			std::int32_t gait_id;
-			const aris::sensor::ImuData *imu_data;
+            std::int32_t gait_id;
+//            const aris::sensor::ImuData *imu_data;
 			const std::vector<aris::control::EthercatForceSensor::Data> *force_data;
 			std::vector<aris::control::EthercatForceSensorRuiCongCombo::RuiCongComboData> *ruicong_data;
 			const std::vector<aris::control::EthercatMotion::RawData> *motion_raw_data;
