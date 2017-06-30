@@ -494,14 +494,14 @@ namespace aris
                         std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
                         msg.copyStruct(param);
                     } };
-			ParseFunc parse_zero_ruicong{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
-			{
-				BasicFunctionParam param;
-				param.cmd_type = Imp::RobotCmdID::ZERO_RUICONG;
-				std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
-				msg.copyStruct(param);
-			}
-			};
+                ParseFunc parse_zero_ruicong{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
+                    {
+                        BasicFunctionParam param;
+                        param.cmd_type = Imp::RobotCmdID::ZERO_RUICONG;
+                        std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
+                        msg.copyStruct(param);
+                    }
+                };
 
 
                 // socket //
@@ -1216,15 +1216,15 @@ namespace aris
 		{
 			for (std::size_t i = 0; i < data.ruicongcombo_data->at(0).isZeroingRequested.size(); i++)
 			{
-				if (param.active_leg[i])
+				if (param.active_channel[i])
 				{
 					data.ruicongcombo_data->at(0).isZeroingRequested.at(i) = true;
-					rt_printf("zeroing leg: %d\n",i);
+					rt_printf("zeroing channel: %d\n",i);
 				}
 				else
 				{
 					data.ruicongcombo_data->at(0).isZeroingRequested.at(i) = false;
-					rt_printf("not zeroing leg: %d\n", i);
+					rt_printf("not zeroing channel: %d\n", i);
 				}
 			}
 			return 0;

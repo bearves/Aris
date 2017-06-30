@@ -652,6 +652,74 @@
                         <TorqueUnit index="0x2040" subindex="0x32" type="int32" write="false"/>
                     </SDO>
                 </AtiForceSensor>
+		<RuiCongCombo product_code="0x00000036" vender_id="0xe000001b" alias="0">
+			<PDO>
+			  <index_1a01 index="0x1a01" is_tx="true">
+			    <Fx index="0x20d2" subindex="0x01" type="int32"/>
+			    <Fy index="0x20d2" subindex="0x02" type="int32"/>
+			    <Fz index="0x20d2" subindex="0x03" type="int32"/>
+			    <Mx index="0x20d2" subindex="0x04" type="int32"/>
+			    <My index="0x20d2" subindex="0x05" type="int32"/>
+			    <Mz index="0x20d2" subindex="0x06" type="int32"/>
+			  </index_1a01>
+			  <index_1a02 index="0x1a02" is_tx="true">
+			    <Fx index="0x20dc" subindex="0x01" type="int32"/>
+			    <Fy index="0x20dc" subindex="0x02" type="int32"/>
+			    <Fz index="0x20dc" subindex="0x03" type="int32"/>
+			    <Mx index="0x20dc" subindex="0x04" type="int32"/>
+			    <My index="0x20dc" subindex="0x05" type="int32"/>
+			    <Mz index="0x20dc" subindex="0x06" type="int32"/>
+			  </index_1a02>
+			  <index_1a03 index="0x1a03" is_tx="true">
+			    <Fx index="0x20e6" subindex="0x01" type="int32"/>
+			    <Fy index="0x20e6" subindex="0x02" type="int32"/>
+			    <Fz index="0x20e6" subindex="0x03" type="int32"/>
+			    <Mx index="0x20e6" subindex="0x04" type="int32"/>
+			    <My index="0x20e6" subindex="0x05" type="int32"/>
+			    <Mz index="0x20e6" subindex="0x06" type="int32"/>
+			  </index_1a03>
+			  <index_1a04 index="0x1a04" is_tx="true">
+			    <Fx index="0x20f0" subindex="0x01" type="int32"/>
+			    <Fy index="0x20f0" subindex="0x02" type="int32"/>
+			    <Fz index="0x20f0" subindex="0x03" type="int32"/>
+			    <Mx index="0x20f0" subindex="0x04" type="int32"/>
+			    <My index="0x20f0" subindex="0x05" type="int32"/>
+			    <Mz index="0x20f0" subindex="0x06" type="int32"/>
+			  </index_1a04>
+			  <index_1a05 index="0x1a05" is_tx="true">
+			    <Fx index="0x20fa" subindex="0x01" type="int32"/>
+			    <Fy index="0x20fa" subindex="0x02" type="int32"/>
+			    <Fz index="0x20fa" subindex="0x03" type="int32"/>
+			    <Mx index="0x20fa" subindex="0x04" type="int32"/>
+			    <My index="0x20fa" subindex="0x05" type="int32"/>
+			    <Mz index="0x20fa" subindex="0x06" type="int32"/>
+			  </index_1a05>
+			  <index_1a06 index="0x1a06" is_tx="true">
+			    <Fx index="0x2104" subindex="0x01" type="int32"/>
+			    <Fy index="0x2104" subindex="0x02" type="int32"/>
+			    <Fz index="0x2104" subindex="0x03" type="int32"/>
+			    <Mx index="0x2104" subindex="0x04" type="int32"/>
+			    <My index="0x2104" subindex="0x05" type="int32"/>
+			    <Mz index="0x2104" subindex="0x06" type="int32"/>
+			  </index_1a06>
+			  <index_1600 index="0x1600" is_tx="false">
+			    <Sna index="0x2064" subindex="0x01" type="uint8"/>
+			  </index_1600>
+			  <index_1601 index="0x1601" is_tx="false">
+			    <Snr1 index="0x206e" subindex="0x01" type="uint8"/>
+			    <Snr2 index="0x206e" subindex="0x02" type="uint8"/>
+			    <Snr3 index="0x206e" subindex="0x03" type="uint8"/>
+			    <Snr4 index="0x206e" subindex="0x04" type="uint8"/>
+			    <Snr5 index="0x206e" subindex="0x05" type="uint8"/>
+			    <Snr6 index="0x206e" subindex="0x06" type="uint8"/>
+			    <Snr7 index="0x206e" subindex="0x07" type="uint8"/>
+			    <Snr8 index="0x206e" subindex="0x08" type="uint8"/>
+			  </index_1601>
+			</PDO>
+			<SDO>
+			  <Sync index="0x2064" subindex="0x0" type="uint8" write="false"/>
+			</SDO>
+		</RuiCongCombo>
             </SlaveType>
             <Slave>
                 <Driver1  type="CopleyAE2"/>

@@ -18,13 +18,20 @@ namespace aris
 	namespace server
 	{
 		enum { MAX_MOTOR_NUM = 100 };
+		enum { MAX_FSR_CHANNEL_NUM = 20 };
 
 		//for enable, disable, and home
 		struct BasicFunctionParam :aris::dynamic::PlanParamBase
 		{
+        public:
 			bool active_motor[MAX_MOTOR_NUM];
-			bool active_leg[6] = {false,false,false,false,false,false};//ugly ugly ugly
-			BasicFunctionParam() { std::fill(active_motor, active_motor + MAX_MOTOR_NUM, true); };
+			bool active_channel[MAX_FSR_CHANNEL_NUM];
+
+			BasicFunctionParam() 
+            { 
+                std::fill(active_motor, active_motor + MAX_MOTOR_NUM, true);
+                std::fill(active_channel, active_channel + MAX_FSR_CHANNEL_NUM, false);
+            };
 		};
 
 		//for all ordinary gaits
