@@ -95,7 +95,7 @@ add_library(aris_core SHARED ${FULL_SRC} ${FULL_H} src/aris_core/aris_core.h)
 set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H} src/aris_core/aris_core.h)
 
 # aris control project
-set(SOURCE aris_control_motion aris_control_ethercat aris_control_pipe)
+set(SOURCE aris_control_motion aris_control_ethercat aris_control_pipe MadgwickAHRS)
 PREPEND_CPP(FULL_SRC src/aris_control ${SOURCE})
 PREPEND_H(FULL_H src/aris_control ${SOURCE})
 add_library(aris_control SHARED ${FULL_SRC} ${FULL_H} src/aris_control/aris_control.h)

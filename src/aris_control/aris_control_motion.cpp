@@ -742,7 +742,16 @@ namespace aris
                 data.accel[i] = highbyte * accel_h_resolution + lowbyte * accel_l_resolution;
                 // convert from milli-G to m/s^2
                 data.accel[i] *= 9.806 / 1000.0;
+
             }
+            
+            madgwick_filter.updateIMU(
+                    data.gyro[0], data.gyro[1], data.gyro[2], 
+                    data.accel[0], data.accel[1], data.accel[2]);
+
+            data.euler[0] = madgwick_filter.getRollRadians();
+            data.euler[1] = madgwick_filter.getPitchRadians();
+            data.euler[2] = madgwick_filter.getYawRadians();
         }
  		
         struct EthercatController::Imp
@@ -1040,18 +1049,18 @@ namespace aris
                 this->msgPipe().sendToNrt(*data.msg_send);
             }
 
-            if (imp_->control_count_ % 1000 == 0)
+            if (imp_->control_count_ % 100 == 0)
             {
             //    motionAtPhy(0).printStatus();
             //    rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
                 if (imp_->imu_vec_.size() > 0){
-                    rt_printf("%f\t%f\t%f\t%f\t%f\t%f\n", 
-                            imp_->imu_data_[0].gyro[0],
-                            imp_->imu_data_[0].gyro[1],
-                            imp_->imu_data_[0].gyro[2],
+                    rt_printf("%f\t%f\t%f\t%f\t%f\t%f\n",
                             imp_->imu_data_[0].accel[0],
                             imp_->imu_data_[0].accel[1],
-                            imp_->imu_data_[0].accel[2]);
+                            imp_->imu_data_[0].accel[2],
+                            imp_->imu_data_[0].euler[0]/3.14159265358979*180,
+                            imp_->imu_data_[0].euler[1]/3.14159265358979*180,
+                            imp_->imu_data_[0].euler[2]/3.14159265358979*180);
                 }
             }
 

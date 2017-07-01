@@ -7,7 +7,7 @@
 #include <array>
 
 #include <aris_control_ethercat.h>
-
+#include "MadgwickAHRS.h"
 
 namespace aris
 {
@@ -183,9 +183,10 @@ namespace aris
                 EthercatIMU(const aris::core::XmlElement &xml_ele): EthercatSlave(xml_ele)
                 {
                     gyro_h_resolution = 0.02;
-                    gyro_h_resolution  = 0.01/256.0;
+                    gyro_l_resolution  = 0.01/256.0;
                     accel_h_resolution = 0.25;
                     accel_l_resolution = 0.125/256.0;
+                    madgwick_filter.begin(1000.0);
                 }
             protected:
                 // resolution ratios
@@ -194,6 +195,7 @@ namespace aris
                 double gyro_l_resolution;
                 double accel_h_resolution;
                 double accel_l_resolution;
+                Madgwick madgwick_filter;
         };
 
         class EthercatController :public EthercatMaster
