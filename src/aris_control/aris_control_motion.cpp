@@ -719,6 +719,31 @@ namespace aris
 			return ;
 
  		}
+
+        auto EthercatIMU::readData(Data &data)->void
+        {
+            std::int32_t value;
+            std::int16_t highbyte;
+            std::int16_t lowbyte;
+            for ( int i = 0; i < 3; i++)
+            {
+                this->readPdo(0, i, value);
+                highbyte = (value & 0xFFFF0000) >> 16;
+                lowbyte = (value & 0x0000FFFF) >> 8;
+
+                data.gyro[i] = highbyte * gyro_h_resolution + lowbyte * gyro_l_resolution;
+                // convert from deg/s to rad/s
+                data.gyro[i] *= 3.14159265358979 / 180.0;
+
+                this->readPdo(1, i, value);
+                highbyte = (value & 0xFFFF0000) >> 16;
+                lowbyte = (value & 0x0000FFFF) >> 8;
+
+                data.accel[i] = highbyte * accel_h_resolution + lowbyte * accel_l_resolution;
+                // convert from milli-G to m/s^2
+                data.accel[i] *= 9.806 / 1000.0;
+            }
+        }
  		
         struct EthercatController::Imp
         {
@@ -738,6 +763,9 @@ namespace aris
             
 			std::vector<EthercatForceSensorRuiCongCombo *> force_sensor_rcc_vec_;
 			std::vector<EthercatForceSensorRuiCongCombo::RuiCongComboData> force_sensor_rcc_data_;
+
+            std::vector<EthercatIMU *> imu_vec_;
+            std::vector<EthercatIMU::Data> imu_data_;
 
             std::unique_ptr<Pipe<std::vector<EthercatMotion::RawData> > > record_pipe_;
             std::thread record_thread_;
@@ -767,6 +795,7 @@ namespace aris
             imp_->motion_vec_.clear();
             imp_->force_sensor_vec_.clear();
  			imp_->force_sensor_rcc_vec_.clear();
+ 			imp_->imu_vec_.clear();
 
             auto slave_xml = xml_ele.FirstChildElement("Slave");
             printf("Adding slaves\n");
@@ -785,8 +814,13 @@ namespace aris
 				else if (type == "RuiCongCombo")
 				{
 					imp_->force_sensor_rcc_vec_.push_back(addSlave<EthercatForceSensorRuiCongCombo>(std::ref(*slaveTypeMap.at(type))));
-					std::cout << "RuiCongCombo added." << std::endl;
+                    printf("Adding FSR %s\n", type.c_str());
 				}
+                else if (type == "MeHeavyEIMU")
+                {
+                    imp_->imu_vec_.push_back(addSlave<EthercatIMU>(std::ref(*slaveTypeMap.at(type))));
+                    printf("Adding IMU %s\n", type.c_str());
+                }
                 else
                 {
                     throw std::runtime_error(std::string("unknown slave type of \"") + type + "\"");
@@ -841,6 +875,7 @@ namespace aris
             imp_->last_motion_rawdata_.resize(imp_->motion_vec_.size());
             imp_->force_sensor_data_.resize(imp_->force_sensor_vec_.size());
 			imp_->force_sensor_rcc_data_.resize(imp_->force_sensor_rcc_vec_.size());
+			imp_->imu_data_.resize(imp_->imu_vec_.size());
 
             imp_->record_pipe_.reset(new Pipe<std::vector<EthercatMotion::RawData> >(true, imp_->motion_vec_.size()));
         }
@@ -913,13 +948,22 @@ namespace aris
         auto EthercatController::forceSensorAt(int i)->EthercatForceSensor & { return *imp_->force_sensor_vec_.at(i); };
 		auto EthercatController::ruicongComboNum()->std::size_t { return imp_->force_sensor_rcc_vec_.size(); };
 		auto EthercatController::ruicongComboAt(int i)->EthercatForceSensorRuiCongCombo & { return *imp_->force_sensor_rcc_vec_.at(i); };
+        auto EthercatController::imuNum()->std::size_t { return imp_->imu_vec_.size(); };
+        auto EthercatController::imuAt(int i)->EthercatIMU & { return *imp_->imu_vec_.at(i); };
 
         auto EthercatController::msgPipe()->Pipe<aris::core::Msg>& { return imp_->msg_pipe_; };
 
         auto EthercatController::controlStrategy()->void
         {
             /*构造传入strategy的参数*/
-			Data data{ &imp_->last_motion_rawdata_, &imp_->motion_rawdata_, &imp_->force_sensor_data_, &imp_->force_sensor_rcc_data_, nullptr, nullptr };
+			Data data{ 
+                &imp_->last_motion_rawdata_, 
+                &imp_->motion_rawdata_, 
+                &imp_->force_sensor_data_, 
+                &imp_->force_sensor_rcc_data_, 
+                &imp_->imu_data_,
+                nullptr, 
+                nullptr };
 
             /*收取消息*/
             if (this->msgPipe().recvInRT(aris::core::MsgRT::instance[0]) > 0)
@@ -950,6 +994,13 @@ namespace aris
 					imp_->force_sensor_rcc_vec_.at(i)->readData(imp_->force_sensor_rcc_data_[i]);
 				}
 			}
+			if (imp_->imu_vec_.size() > 0)
+ 			{
+				for (std::size_t i = 0; i < imp_->imu_vec_.size(); ++i)
+				{
+					imp_->imu_vec_.at(i)->readData(imp_->imu_data_[i]);
+				}
+ 			}
 
             /*执行自定义的控制策略*/
             if (imp_->strategy_)
@@ -993,14 +1044,14 @@ namespace aris
             {
             //    motionAtPhy(0).printStatus();
             //    rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
-                if (imp_->force_sensor_rcc_vec_.size() > 0){
+                if (imp_->imu_vec_.size() > 0){
                     rt_printf("%f\t%f\t%f\t%f\t%f\t%f\n", 
-                            imp_->force_sensor_rcc_data_[0].force[0].Fx,
-                            imp_->force_sensor_rcc_data_[0].force[0].Fy,
-                            imp_->force_sensor_rcc_data_[0].force[0].Fz,
-                            imp_->force_sensor_rcc_data_[0].force[0].Mx,
-                            imp_->force_sensor_rcc_data_[0].force[0].My,
-                            imp_->force_sensor_rcc_data_[0].force[0].Mz);
+                            imp_->imu_data_[0].gyro[0],
+                            imp_->imu_data_[0].gyro[1],
+                            imp_->imu_data_[0].gyro[2],
+                            imp_->imu_data_[0].accel[0],
+                            imp_->imu_data_[0].accel[1],
+                            imp_->imu_data_[0].accel[2]);
                 }
             }
 

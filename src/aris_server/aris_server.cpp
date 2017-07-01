@@ -1247,6 +1247,7 @@ namespace aris
             param.force_data = data.force_sensor_data;
             param.motion_raw_data = data.motion_raw_data;
             param.ruicong_data = data.ruicongcombo_data;
+            param.imu_data = data.imu_data;
             param.last_motion_raw_data = data.last_motion_raw_data;
             param.motion_feedback_pos = &this->motion_pos_;
 

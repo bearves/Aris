@@ -168,6 +168,33 @@ namespace aris
 			double force_ratio_=0.001, torque_ratio_=0.001;
 		};
 
+        class EthercatIMU final:public EthercatSlave
+        {
+            public:
+                struct Data
+                {
+                    double gyro[3];
+                    double accel[3];
+                    double euler[3];
+                };
+
+                auto readData(Data &data)->void;
+
+                EthercatIMU(const aris::core::XmlElement &xml_ele): EthercatSlave(xml_ele)
+                {
+                    gyro_h_resolution = 0.02;
+                    gyro_h_resolution  = 0.01/256.0;
+                    accel_h_resolution = 0.25;
+                    accel_l_resolution = 0.125/256.0;
+                }
+            protected:
+                // resolution ratios
+                // see the document of ADIS16485
+                double gyro_h_resolution; 
+                double gyro_l_resolution;
+                double accel_h_resolution;
+                double accel_l_resolution;
+        };
 
         class EthercatController :public EthercatMaster
         {
@@ -178,6 +205,7 @@ namespace aris
                     std::vector<EthercatMotion::RawData> *motion_raw_data;
                     std::vector<EthercatForceSensor::Data> *force_sensor_data;
                     std::vector<EthercatForceSensorRuiCongCombo::RuiCongComboData> *ruicongcombo_data;
+                    std::vector<EthercatIMU::Data> *imu_data;
                     const aris::core::MsgRT *msg_recv;
                     aris::core::MsgRT *msg_send;
                 };
@@ -194,6 +222,8 @@ namespace aris
                 auto forceSensorAt(int i)->EthercatForceSensor &;
                 auto ruicongComboNum()->std::size_t;
                 auto ruicongComboAt(int i)->EthercatForceSensorRuiCongCombo &;
+                auto imuNum()->std::size_t;
+                auto imuAt(int i)->EthercatIMU &;
                 auto msgPipe()->Pipe<aris::core::Msg>&;
 
             protected:
