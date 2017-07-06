@@ -729,6 +729,11 @@ namespace aris
             int paramNum{ 0 };
 
             /*将msg转换成cmd和一系列参数，不过这里的参数为原生字符串，既包括名称也包含值，例如“-heigt=0.5”*/
+            if (msg.size() <= 0)
+            {
+                throw std::runtime_error(aris::core::log("Invalid message size"));
+            }
+
             if (msg.data()[msg.size() - 1] == '\0')
             {
                 std::string input{ msg.data() };

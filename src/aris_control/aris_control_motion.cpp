@@ -1062,6 +1062,17 @@ namespace aris
                             imp_->imu_data_[0].euler[1]/3.14159265358979*180,
                             imp_->imu_data_[0].euler[2]/3.14159265358979*180);
                 }
+
+                if (imp_->force_sensor_rcc_vec_.size() > 0)
+                {
+                    rt_printf("%f\t%f\t%f\t%f\t%f\t%f\n",
+                            imp_->force_sensor_rcc_data_[0].force[0].Fx,
+                            imp_->force_sensor_rcc_data_[0].force[0].Fy,
+                            imp_->force_sensor_rcc_data_[0].force[0].Fz,
+                            imp_->force_sensor_rcc_data_[0].force[0].Mx,
+                            imp_->force_sensor_rcc_data_[0].force[0].My,
+                            imp_->force_sensor_rcc_data_[0].force[0].Mz);
+                }
             }
 
             imp_->control_count_ ++;
