@@ -166,8 +166,11 @@ namespace aris
                     };
                     template<typename DataType>auto configSdo(DataType data)->void
                     {
+
                         if (!(option_ & CONFIG)) throw std::runtime_error("sdo is not config-able");
-                        if (typeid(DataType) != *typeInfoMap().at(type_name_).type_info_)throw std::runtime_error("invalid sdo type when config sdo");
+                        if (typeid(DataType) != *typeInfoMap().at(type_name_).type_info_){
+                            throw std::runtime_error("invalid sdo type when config sdo");
+                        }
                         (*reinterpret_cast<DataType *>(config_value_)) = data;
                     };
                     template<typename DataType>auto readSdo(DataType &data)->void;
