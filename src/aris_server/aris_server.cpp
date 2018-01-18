@@ -20,388 +20,12 @@ namespace aris
 {
     namespace server
     {
-        class Node
-        {
-            public:
-                Node* AddChildGroup(const char *Name);
-                Node* AddChildUnique(const char *Name);
-                Node* AddChildParam(const char *Name);
-                Node* FindChild(const char *Name)
-                {
-                    auto result = std::find_if(children.begin(), children.end(), [Name](std::unique_ptr<Node> &node)
-                            {
-                            return (!std::strcmp(node->name.c_str(), Name));
-                            });
-
-                    if (result != children.end())
-                    {
-                        return result->get();
-                    }
-                    else
-                    {
-                        return nullptr;
-                    }
-                };
-
-                bool IsTaken() { return isTaken; };
-                void Take();
-                void Reset()
-                {
-                    this->isTaken = false;
-                    for (auto &child : children)
-                    {
-                        child->Reset();
-                    }
-                };
-
-            public:
-                Node(Node*father, const char *Name) :name(Name) { this->father = father; };
-                virtual ~Node() {};
-
-            private:
-                std::string name;
-                Node* father;
-                std::vector<std::unique_ptr<Node> > children;
-
-                bool isTaken{ false };
-
-                friend void AddAllParams(const aris::core::XmlElement *pEle, Node *pNode, std::map<std::string, Node *> &allParams, std::map<char, std::string>& shortNames);
-                friend void AddAllDefault(Node *pNode, std::map<std::string, std::string> &params);
-        };
-        class RootNode :public Node
-        {
-            public:
-                RootNode(const char *Name) :Node(nullptr, Name) {};
-
-            private:
-                Node *pDefault;
-
-                friend void AddAllParams(const aris::core::XmlElement *pEle, Node *pNode, std::map<std::string, Node *> &allParams, std::map<char, std::string>& shortNames);
-                friend void AddAllDefault(Node *pNode, std::map<std::string, std::string> &params);
-        };
-        class GroupNode :public Node
-        {
-            public:
-                GroupNode(Node*father, const char *Name) :Node(father, Name) {};
-        };
-        class UniqueNode :public Node
-        {
-            public:
-                UniqueNode(Node*father, const char *Name) :Node(father, Name) {};
-
-            private:
-                Node *pDefault;
-
-                friend void AddAllParams(const aris::core::XmlElement *pEle, Node *pNode, std::map<std::string, Node *> &allParams, std::map<char, std::string>& shortNames);
-                friend void AddAllDefault(Node *pNode, std::map<std::string, std::string> &params);
-        };
-        class ParamNode :public Node
-        {
-            public:
-                ParamNode(Node*father, const char *Name) :Node(father, Name) {};
-            private:
-                std::string type;
-                std::string defaultValue;
-                std::string minValue, maxValue;
-
-                friend void AddAllParams(const aris::core::XmlElement *pEle, Node *pNode, std::map<std::string, Node *> &allParams, std::map<char, std::string>& shortNames);
-                friend void AddAllDefault(Node *pNode, std::map<std::string, std::string> &params);
-        };
-
-        Node* Node::AddChildGroup(const char *Name)
-        {
-            this->children.push_back(std::unique_ptr<Node>(new GroupNode(this, Name)));
-            return children.back().get();
-        };
-        Node* Node::AddChildUnique(const char *Name)
-        {
-            this->children.push_back(std::unique_ptr<Node>(new UniqueNode(this, Name)));
-            return children.back().get();
-        }
-        Node* Node::AddChildParam(const char *Name)
-        {
-            this->children.push_back(std::unique_ptr<Node>(new ParamNode(this, Name)));
-            return children.back().get();
-        }
-        auto Node::Take()->void
-        {
-            if (dynamic_cast<RootNode*>(this))
-            {
-                if (this->isTaken)
-                {
-                    throw std::logic_error(std::string("Param ") + this->name + " has been inputed twice");
-                }
-                else
-                {
-                    this->isTaken = true;
-                    return;
-                }
-            }
-            else if (dynamic_cast<GroupNode*>(this))
-            {
-                if (this->isTaken)
-                {
-                    return;
-                }
-                else
-                {
-                    this->isTaken = true;
-                    father->Take();
-                }
-            }
-            else
-            {
-                if (this->isTaken)
-                {
-                    throw std::logic_error(std::string("Param ") + this->name + " has been inputed twice");
-                }
-                else
-                {
-                    this->isTaken = true;
-                    father->Take();
-                }
-            }
-        }
-
-        auto AddAllParams(const aris::core::XmlElement *pEle, Node *pNode, std::map<std::string, Node *> &allParams, std::map<char, std::string>& shortNames)->void
-        {
-            //add all children//
-            for (auto pChild = pEle->FirstChildElement(); pChild != nullptr; pChild = pChild->NextSiblingElement())
-            {
-                //check if children already has this value//
-                if (pNode->FindChild(pChild->name()))
-                {
-                    throw std::runtime_error(std::string("XML file has error: node \"") + pChild->name() + "\" already exist");
-                }
-
-                //set all children//
-                if (pChild->Attribute("type", "group"))
-                {
-                    AddAllParams(pChild, pNode->AddChildGroup(pChild->name()), allParams, shortNames);
-                }
-                else if (pChild->Attribute("type", "unique"))
-                {
-                    AddAllParams(pChild, pNode->AddChildUnique(pChild->name()), allParams, shortNames);
-                }
-                else
-                {
-                    //now the pChild is a param_node//
-                    Node * insertNode;
-
-                    if (allParams.find(std::string(pChild->name())) != allParams.end())
-                    {
-                        throw std::runtime_error(std::string("XML file has error: node \"") + pChild->name() + "\" already exist");
-                    }
-                    else
-                    {
-                        insertNode = pNode->AddChildParam(pChild->name());
-                        allParams.insert(std::pair<std::string, Node *>(std::string(pChild->name()), insertNode));
-                    }
-
-                    /*set abbreviation*/
-                    if (pChild->Attribute("abbreviation"))
-                    {
-                        if (shortNames.find(*pChild->Attribute("abbreviation")) != shortNames.end())
-                        {
-                            throw std::runtime_error(std::string("XML file has error: abbreviation \"") + pChild->Attribute("abbreviation") + "\" already exist");
-                        }
-                        else
-                        {
-                            char abbr = *pChild->Attribute("abbreviation");
-                            shortNames.insert(std::pair<char, std::string>(abbr, std::string(pChild->name())));
-                        }
-                    }
-
-                    /*set values*/
-                    if (pChild->Attribute("type"))
-                    {
-                        dynamic_cast<ParamNode*>(insertNode)->type = std::string(pChild->Attribute("type"));
-                    }
-                    else
-                    {
-                        dynamic_cast<ParamNode*>(insertNode)->type = "";
-                    }
-
-                    if (pChild->Attribute("default"))
-                    {
-                        dynamic_cast<ParamNode*>(insertNode)->defaultValue = std::string(pChild->Attribute("default"));
-                    }
-                    else
-                    {
-                        dynamic_cast<ParamNode*>(insertNode)->defaultValue = "";
-                    }
-
-                    if (pChild->Attribute("maxValue"))
-                    {
-                        dynamic_cast<ParamNode*>(insertNode)->maxValue = std::string(pChild->Attribute("maxValue"));
-                    }
-                    else
-                    {
-                        dynamic_cast<ParamNode*>(insertNode)->maxValue = "";
-                    }
-
-                    if (pChild->Attribute("minValue"))
-                    {
-                        dynamic_cast<ParamNode*>(insertNode)->minValue = std::string(pChild->Attribute("minValue"));
-                    }
-                    else
-                    {
-                        dynamic_cast<ParamNode*>(insertNode)->minValue = "";
-                    }
-                }
-            }
-
-            /*set all values*/
-            if (dynamic_cast<RootNode*>(pNode))
-            {
-                if (pEle->Attribute("default"))
-                {
-                    if (pNode->FindChild(pEle->Attribute("default")))
-                    {
-                        dynamic_cast<RootNode*>(pNode)->pDefault = pNode->FindChild(pEle->Attribute("default"));
-                    }
-                    else
-                    {
-                        throw std::logic_error(std::string("XML file has error: \"") + pNode->name + "\" can't find default param");
-                    }
-                }
-                else
-                {
-                    dynamic_cast<RootNode*>(pNode)->pDefault = nullptr;
-                }
-            }
-
-            if (dynamic_cast<UniqueNode*>(pNode))
-            {
-                if (pEle->Attribute("default"))
-                {
-                    if (pNode->FindChild(pEle->Attribute("default")))
-                    {
-                        dynamic_cast<UniqueNode*>(pNode)->pDefault = pNode->FindChild(pEle->Attribute("default"));
-                    }
-                    else
-                    {
-                        throw std::logic_error(std::string("XML file has error: \"") + pNode->name + "\" can't find default param");
-                    }
-                }
-                else
-                {
-                    if (pNode->children.empty())
-                    {
-                        throw std::logic_error(std::string("XML file has error: unique node \"") + pNode->name + "\" must have more than 1 child");
-                    }
-                    else
-                    {
-                        dynamic_cast<UniqueNode*>(pNode)->pDefault = nullptr;
-                    }
-                }
-            }
-        }
-        auto AddAllDefault(Node *pNode, std::map<std::string, std::string> &params)->void
-        {
-            if (pNode->isTaken)
-            {
-                if (dynamic_cast<RootNode*>(pNode))
-                {
-                    auto found = find_if(pNode->children.begin(), pNode->children.end(), [](std::unique_ptr<Node> &a)
-                            {
-                            return a->isTaken;
-                            });
-
-                    AddAllDefault(found->get(), params);
-                }
-
-                if (dynamic_cast<UniqueNode*>(pNode))
-                {
-                    auto found = find_if(pNode->children.begin(), pNode->children.end(), [](std::unique_ptr<Node> &a)
-                            {
-                            return a->isTaken;
-                            });
-
-                    AddAllDefault(found->get(), params);
-                }
-
-                if (dynamic_cast<GroupNode*>(pNode))
-                {
-                    for (auto &i : pNode->children)	AddAllDefault(i.get(), params);
-                }
-
-                if (dynamic_cast<ParamNode*>(pNode))
-                {
-                    if (params.at(pNode->name) == "")params.at(pNode->name) = dynamic_cast<ParamNode*>(pNode)->defaultValue;
-
-                    return;
-                }
-            }
-            else
-            {
-                if (dynamic_cast<RootNode*>(pNode))
-                {
-                    if (!pNode->children.empty())
-                    {
-                        if ((dynamic_cast<RootNode*>(pNode)->pDefault))
-                        {
-                            AddAllDefault(dynamic_cast<RootNode*>(pNode)->pDefault, params);
-                        }
-                        else
-                        {
-                            throw std::logic_error(std::string("cmd \"") + pNode->name + "\" has no default param");
-                        }
-                    }
-
-                    pNode->isTaken = true;
-                }
-
-                if (dynamic_cast<UniqueNode*>(pNode))
-                {
-                    if (!pNode->children.empty())
-                    {
-                        if (dynamic_cast<UniqueNode*>(pNode)->pDefault)
-                        {
-                            AddAllDefault(dynamic_cast<UniqueNode*>(pNode)->pDefault, params);
-                        }
-                        else
-                        {
-                            throw std::logic_error(std::string("param \"") + pNode->name + "\" has no default sub-param");
-                        }
-                    }
-
-                    pNode->isTaken = true;
-                }
-
-                if (dynamic_cast<GroupNode*>(pNode))
-                {
-                    for (auto &i : pNode->children)
-                    {
-                        AddAllDefault(i.get(), params);
-                    }
-
-
-                    pNode->isTaken = true;
-                }
-
-                if (dynamic_cast<ParamNode*>(pNode))
-                {
-                    params.insert(make_pair(pNode->name, dynamic_cast<ParamNode*>(pNode)->defaultValue));
-                    pNode->isTaken = true;
-                }
-            }
-        }
-
-        struct CommandStruct
-        {
-            std::unique_ptr<RootNode> root;
-            std::map<std::string, Node *> allParams{};
-            std::map<char, std::string> shortNames{};
-
-            CommandStruct(const std::string &name) :root(new RootNode(name.c_str())) {};
-        };
 
         class ControlServer::Imp
         {
             public:
                 auto loadXml(const aris::core::XmlDocument &doc)->void;
-                auto addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const aris::dynamic::PlanFunc &gait_func)->void;
+                auto addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const PlanFunc &gait_func)->void;
                 auto start()->void;
                 auto stop()->void;
 
@@ -425,6 +49,7 @@ namespace aris
                 auto enable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto disable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
+                auto jog(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto zero_ruicong(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
 
@@ -437,6 +62,7 @@ namespace aris
                     RUN_GAIT,
                     FAKE_HOME,
                     ZERO_RUICONG,
+                    JOG,
 
                     ROBOT_CMD_COUNT,
                     CLEAR_CMD_QUEUE
@@ -454,54 +80,31 @@ namespace aris
 
                 // 以下储存所有的命令 //
                 std::map<std::string, int> cmd_id_map_;//store gait id in follow vector
-                std::vector<dynamic::PlanFunc> plan_vec_;// store plan func
+                std::vector<PlanFunc> plan_vec_;// store plan func
                 std::vector<ParseFunc> parser_vec_; // store parse func
                 std::map<std::string, std::unique_ptr<CommandStruct> > cmd_struct_map_;//store Node of command
 
+                ParseFunc BasicCmdParseFunc(RobotCmdID cmd_id)
+                {
+                    return [cmd_id, this](
+                            const std::string &cmd, 
+                            const std::map<std::string, std::string> &params,
+                            aris::core::Msg &msg)
+                    {
+                        BasicFunctionParam param;
+                        param.cmd_type = cmd_id;
+                        std::fill_n(param.active_motor, this->controller_->motionNum(), true);
+                        msg.copyStruct(param);
+                    } ;
+                }
+
                 // 储存特殊命令的parse_func //
-                ParseFunc parse_enable_func_{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
-                    {
-                        BasicFunctionParam param;
-                        param.cmd_type = Imp::RobotCmdID::ENABLE;
-                        std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
-                        msg.copyStruct(param);
-                    } };
-                ParseFunc parse_disable_func_{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
-                    {
-                        BasicFunctionParam param;
-                        param.cmd_type = Imp::RobotCmdID::DISABLE;
-                        std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
-                        msg.copyStruct(param);
-                    } };
-                ParseFunc parse_clear_queue_func_{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
-                    {
-                        BasicFunctionParam param;
-                        param.cmd_type = Imp::RobotCmdID::CLEAR_CMD_QUEUE;
-                        std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
-                        msg.copyStruct(param);
-                    } };
-                ParseFunc parse_home_func_{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
-                    {
-                        BasicFunctionParam param;
-                        param.cmd_type = Imp::RobotCmdID::HOME;
-                        std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
-                        msg.copyStruct(param);
-                    } };
-                ParseFunc parse_fake_home_func_{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
-                    {
-                        BasicFunctionParam param;
-                        param.cmd_type = Imp::RobotCmdID::FAKE_HOME;
-                        std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
-                        msg.copyStruct(param);
-                    } };
-                ParseFunc parse_zero_ruicong{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
-                    {
-                        BasicFunctionParam param;
-                        param.cmd_type = Imp::RobotCmdID::ZERO_RUICONG;
-                        std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
-                        msg.copyStruct(param);
-                    }
-                };
+                ParseFunc parse_enable_func_     {BasicCmdParseFunc(RobotCmdID::ENABLE)};
+                ParseFunc parse_disable_func_    {BasicCmdParseFunc(RobotCmdID::DISABLE)};
+                ParseFunc parse_clear_queue_func_{BasicCmdParseFunc(RobotCmdID::CLEAR_CMD_QUEUE)};
+                ParseFunc parse_home_func_       {BasicCmdParseFunc(RobotCmdID::HOME)};
+                ParseFunc parse_fake_home_func_  {BasicCmdParseFunc(RobotCmdID::FAKE_HOME)};
+                ParseFunc parse_zero_ruicong     {BasicCmdParseFunc(RobotCmdID::ZERO_RUICONG)};
 
 
                 // socket //
@@ -510,7 +113,7 @@ namespace aris
 
                 // 储存控制器等 //
                 aris::control::EthercatController *controller_;
-                std::unique_ptr<aris::dynamic::Model> model_;
+                std::unique_ptr<aris::model::Model> model_;
 //                std::unique_ptr<aris::sensor::IMU> imu_;
 
                 // 结束时的callback //
@@ -594,7 +197,8 @@ namespace aris
                         return 0;
                     });
         }
-        auto ControlServer::Imp::addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const aris::dynamic::PlanFunc &gait_func)->void
+
+        auto ControlServer::Imp::addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const PlanFunc &gait_func)->void
         {
             if (cmd_name == "en")
             {
@@ -1053,7 +657,7 @@ namespace aris
 
         bool ControlServer::Imp::is_clear_cmd_queue_msg(char *cmd_param)
         {
-            aris::dynamic::PlanParamBase *param = reinterpret_cast<aris::dynamic::PlanParamBase *>(cmd_param);
+            PlanParamBase *param = reinterpret_cast<PlanParamBase *>(cmd_param);
             if (param->cmd_type == CLEAR_CMD_QUEUE)
                 return true;
 
@@ -1063,7 +667,7 @@ namespace aris
         auto ControlServer::Imp::execute_cmd(int count, char *cmd_param, aris::control::EthercatController::Data &data)->int
         {
             int ret;
-            aris::dynamic::PlanParamBase *param = reinterpret_cast<aris::dynamic::PlanParamBase *>(cmd_param);
+            PlanParamBase *param = reinterpret_cast<PlanParamBase *>(cmd_param);
             param->count = count;
 
             switch (param->cmd_type)
@@ -1086,6 +690,8 @@ namespace aris
 			    case ZERO_RUICONG:
 				    ret = zero_ruicong(static_cast<BasicFunctionParam &>(*param), data);
 				    break;
+                case JOG:
+				    ret = jog(static_cast<BasicFunctionParam &>(*param), data);
                 default:
                     rt_printf("unknown cmd type\n");
                     ret = 0;
@@ -1198,21 +804,25 @@ namespace aris
 
             return is_all_homed ? 0 : 1;
         };
+
+        auto ControlServer::Imp::jog(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
+        {
+            return 0;
+        }
+
         auto ControlServer::Imp::fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
         {
-            for (std::size_t i = 0; i < model_->motionPool().size(); ++i)
+            for (std::size_t i = 0; i < controller_->motionNum(); ++i)
             {
-                model_->motionPool().at(i).update();
-
                 controller_->motionAtAbs(i).setPosOffset(static_cast<std::int32_t>(controller_->motionAtAbs(i).posOffset() +
-                            model_->motionPool().at(i).motPos()*controller_->motionAtAbs(i).pos2countRatio() - data.motion_raw_data->at(i).feedback_pos
+                            controller_->motionAtAbs(i).homeCount() - data.motion_raw_data->at(i).feedback_pos
                             ));
             }
 
-            for (std::size_t i = 0; i < model_->motionPool().size(); ++i){
+            for (std::size_t i = 0; i < controller_->motionNum(); ++i){
                 rt_printf("Pos2CountRatio %d\n", controller_->motionAtAbs(i).pos2countRatio());
                 rt_printf("Motpos: %.3f FeedbackPos: %d  posOffset: %d\n",
-                        model_->motionPool().at(i).motPos(),
+                        controller_->motionAtAbs(0).homeCount(),
                         data.motion_raw_data->at(0).feedback_pos,
                         controller_->motionAtAbs(0).posOffset()
                         );
@@ -1258,20 +868,29 @@ namespace aris
 
             for (std::size_t i = 0; i < data.motion_raw_data->size(); ++i)
             {
-                this->motion_pos_[i] = static_cast<double>(data.motion_raw_data->at(i).feedback_pos) / controller_->motionAtAbs(i).pos2countRatio();
+                this->motion_pos_[i] = 
+                    static_cast<double>(data.motion_raw_data->at(i).feedback_pos) /
+                    controller_->motionAtAbs(i).pos2countRatio();
             }
 
             // 执行gait函数 //
-            int ret = this->plan_vec_.at(param.gait_id).operator()(*model_.get(), param);
+            PlanFunc func = this->plan_vec_.at(param.gait_id);
+            int ret = func(*model_.get(), param);
 
-            // 向下写入输入位置 //
+            // write cmds to drives //
             for (std::size_t i = 0; i < controller_->motionNum(); ++i)
             {
                 if (param.active_motor[i])
                 {
-                    data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::RUN;
-                    data.motion_raw_data->operator[](i).target_pos = 
-                        static_cast<std::int32_t>(model_->motionPool().at(i).motPos() * controller_->motionAtAbs(i).pos2countRatio());
+                    auto driveData = data.motion_raw_data->operator[](i); 
+                    auto controlData = param.motion_raw_data->operator[](i); 
+                    
+                    // only write outputs, since the PlanFunc could modify feedback data
+                    driveData.cmd = controlData.cmd;
+                    driveData.mode = controlData.mode;
+                    driveData.target_pos = controlData.target_pos;
+                    driveData.target_vel = controlData.target_vel;
+                    driveData.target_cur = controlData.target_cur;
                 }
             }
 
@@ -1362,14 +981,19 @@ namespace aris
             static ControlServer instance;
             return std::ref(instance);
         }
+
         ControlServer::ControlServer() :imp(new Imp(this)) {}
+
         ControlServer::~ControlServer() {}
-        auto ControlServer::createModel(dynamic::Model *model_)->void
+
+        auto ControlServer::createModel(model::Model *model_)->void
         {
-            if (imp->model_)throw std::runtime_error("control sever can't create model because it already has one");
+            if (imp->model_)
+                throw std::runtime_error("control sever can't create model because it already has one");
 
             imp->model_.reset(model_);
         }
+
         auto ControlServer::loadXml(const char *fileName)->void
         {
             aris::core::XmlDocument doc;
@@ -1381,19 +1005,27 @@ namespace aris
 
             loadXml(doc);
         }
-        auto ControlServer::loadXml(const aris::core::XmlDocument &xmlDoc)->void {	imp->loadXml(xmlDoc);}
-        auto ControlServer::model()->dynamic::Model&
+
+        auto ControlServer::loadXml(const aris::core::XmlDocument &xmlDoc)->void 
+        {
+            imp->loadXml(xmlDoc);
+        }
+
+        auto ControlServer::model()->model::Model&
         {
             return std::ref(*imp->model_.get());
         };
+
         auto ControlServer::controller()->control::EthercatController&
         {
             return std::ref(*imp->controller_);
         }
-        auto ControlServer::addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const aris::dynamic::PlanFunc &gait_func)->void
+
+        auto ControlServer::addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const PlanFunc &gait_func)->void
         {
             imp->addCmd(cmd_name, parse_func, gait_func);
         }
+
         auto ControlServer::open()->void 
         {
             for (;;)

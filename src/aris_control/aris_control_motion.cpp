@@ -317,6 +317,7 @@ namespace aris
 
                     }
                 }
+
                 std::int16_t runPos(const std::int32_t pos)
                 {
                     if (is_fake)
@@ -583,6 +584,8 @@ namespace aris
         auto EthercatMotion::maxVelCount()->std::int32_t { return imp_->max_vel_count_; };
 
         auto EthercatMotion::pos2countRatio()->std::int32_t { return imp_->input2count_; };
+
+        auto EthercatMotion::homeCount()->std::int32_t { return imp_->home_count_; };
 
         auto EthercatMotion::setPosOffset(std::int32_t offset)->void
         {

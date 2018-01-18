@@ -8,9 +8,8 @@
 
 #include <aris_core.h>
 #include <aris_control.h>
-#include <aris_dynamic.h>
-
-
+#include <aris_model.h>
+#include <aris_node.h>
 
 namespace aris
 {
@@ -19,8 +18,14 @@ namespace aris
 		enum { MAX_MOTOR_NUM = 100 };
 		enum { MAX_FSR_CHANNEL_NUM = 20 };
 
+		struct PlanParamBase
+		{
+			std::int32_t cmd_type{ 0 };
+			mutable std::int32_t count{ 0 };
+		};
+
 		//for enable, disable, and home
-		struct BasicFunctionParam :aris::dynamic::PlanParamBase
+		struct BasicFunctionParam : PlanParamBase
 		{
         public:
 			bool active_motor[MAX_MOTOR_NUM];
@@ -50,6 +55,7 @@ namespace aris
 		};
 
 		typedef std::function<void(const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg_out)> ParseFunc;
+		typedef std::function<int(aris::model::Model &, const PlanParamBase &)> PlanFunc;
 
 		class ControlServer
 		{
@@ -58,13 +64,13 @@ namespace aris
 
 			template<typename T>
 			auto createModel()->void { this->createModel(new T); };
-			auto createModel(dynamic::Model *model)->void;
+			auto createModel(model::Model *model)->void;
 
 			auto loadXml(const char *fileName)->void;
 			auto loadXml(const aris::core::XmlDocument &xmlDoc)->void;
-			auto model()->dynamic::Model&;
+			auto model()->model::Model&;
 			auto controller()->control::EthercatController&;
-			auto addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const aris::dynamic::PlanFunc &gait_func)->void;
+			auto addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const PlanFunc &gait_func)->void;
 			auto open()->void;
 			auto close()->void;
 			auto setOnExit(std::function<void(void)> callback_func)->void;

@@ -31,10 +31,10 @@ project(aris)
 # set the platform.h, which define the OS platform
 if(UNIX)
 	set(PLATFORM "UNIX")
-#	set(CMAKE_C_COMPILER "/usr/bin/gcc-4.8")
-#	set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
-	set(CMAKE_C_COMPILER "/usr/bin/clang")
-	set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+	set(CMAKE_C_COMPILER "/usr/bin/gcc-4.8")
+	set(CMAKE_CXX_COMPILER "/usr/bin/g++-4.8")
+    #set(CMAKE_C_COMPILER "/usr/bin/clang")
+    #set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
 endif(UNIX)
 if(WIN32)
 	set(PLATFORM "PLATFORM_IS_WINDOWS")
@@ -74,8 +74,8 @@ set(XENOMAI_LINK_LIB native rtdm xenomai)
 set(ETHERLAB_INCL_DIR "/usr/Aris_Dependent/etherlab/include")
 set(ETHERLAB_LINK_DIR "/usr/Aris_Dependent/opt/etherlab/lib")
 set(ETHERLAB_LINK_LIB ethercat_rtdm rt)
-set(ARIS_INCL_DIR ${PROJECT_BINARY_DIR} src/aris_server src/aris_core src/aris_dynamic src/aris_control)
-set(ARIS_LINK_LIB aris_server aris_dynamic aris_control aris_core)
+set(ARIS_INCL_DIR ${PROJECT_BINARY_DIR} src/aris_server src/aris_core  src/aris_control src/aris_model)
+set(ARIS_LINK_LIB aris_server aris_dynamic aris_control aris_core aris_model)
 set(EIGEN_INCL_DIR "/usr/Aris_Dependent/Eigen")
 
 set(ALL_INCL_DIR ${ARIS_INCL_DIR} ${ETHERLAB_INCL_DIR} ${XENOMAI_INCL_DIR} ${GENERAL_INCL_DIR} ${EIGEN_INCL_DIR})
@@ -101,28 +101,26 @@ PREPEND_H(FULL_H src/aris_control ${SOURCE})
 add_library(aris_control SHARED ${FULL_SRC} ${FULL_H} src/aris_control/aris_control.h)
 set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H} src/aris_control/aris_control.h)
 
-# aris dynamic project
-set(SOURCE aris_dynamic_plan aris_dynamic_kernel aris_dynamic_model)
-PREPEND_CPP(FULL_SRC src/aris_dynamic ${SOURCE})
-PREPEND_H(FULL_H src/aris_dynamic ${SOURCE})
-add_library(aris_dynamic SHARED ${FULL_SRC} ${FULL_H} src/aris_dynamic/aris_dynamic.h)
-set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H} src/aris_dynamic/aris_dynamic.h)
-
 # aris control server project
-set(SOURCE aris_server)
+set(SOURCE aris_server aris_node)
 PREPEND_CPP(FULL_SRC src/aris_server ${SOURCE})
 PREPEND_H(FULL_H src/aris_server ${SOURCE})
 add_library(aris_server SHARED ${FULL_SRC} ${FULL_H})
 set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H})
 
-
+# aris model project
+set(SOURCE aris_model)
+PREPEND_CPP(FULL_SRC src/aris_model ${SOURCE})
+PREPEND_H(FULL_H src/aris_model ${SOURCE})
+add_library(aris_model SHARED ${FULL_SRC} ${FULL_H})
+set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H})
 ############################################ install aris ############################################
 if(UNIX)
 	set(CMAKE_INSTALL_PREFIX "/usr/aris")
 endif(UNIX)
 
 install(DIRECTORY sh DESTINATION .)
-install(TARGETS aris_core aris_dynamic aris_control aris_server ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
+install(TARGETS aris_core aris_control aris_server aris_model ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
 install(FILES ${INCLUDE_HEADER_FILES} src/aris.h DESTINATION include)
 install(DIRECTORY src/aris_control/resource/ DESTINATION resource/aris_control)
 
