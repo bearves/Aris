@@ -497,13 +497,15 @@ namespace aris
             if (cmd == "en")
             {
                 parse_enable_func_(cmd, params, cmd_msg);
-                if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for en");
+                if (cmd_msg.size() != sizeof(BasicFunctionParam))
+                    throw std::runtime_error("invalid msg length of parse function for en");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::ENABLE;
             }
             else if (cmd == "ds")
             {
                 parse_disable_func_(cmd, params, cmd_msg);
-                if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for ds");
+                if (cmd_msg.size() != sizeof(BasicFunctionParam))
+                    throw std::runtime_error("invalid msg length of parse function for ds");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::DISABLE;
             }
             else if (cmd == "cq")
@@ -518,19 +520,22 @@ namespace aris
             else if (cmd == "hm")
             {
                 parse_home_func_(cmd, params, cmd_msg);
-                if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for hm");
+                if (cmd_msg.size() != sizeof(BasicFunctionParam))
+                    throw std::runtime_error("invalid msg length of parse function for hm");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::HOME;
             }
             else if (cmd == "fake_home")
             {
                 parse_fake_home_func_(cmd, params, cmd_msg);
-                if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for fake_home");
+                if (cmd_msg.size() != sizeof(BasicFunctionParam))
+                    throw std::runtime_error("invalid msg length of parse function for fake_home");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::FAKE_HOME;
             }
 			else if (cmd == "zrc")
 			{
 				parse_zero_ruicong(cmd, params, cmd_msg);
-				if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for fake_home");
+				if (cmd_msg.size() != sizeof(BasicFunctionParam))
+				    throw std::runtime_error("invalid msg length of parse function for fake_home");
 				reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::ZERO_RUICONG;
 			}
             else
@@ -687,9 +692,9 @@ namespace aris
                 case RUN_GAIT:
                     ret = run(static_cast<GaitParamBase &>(*param), data);
                     break;
-			    case ZERO_RUICONG:
-				    ret = zero_ruicong(static_cast<BasicFunctionParam &>(*param), data);
-				    break;
+                case ZERO_RUICONG:
+                    ret = zero_ruicong(static_cast<BasicFunctionParam &>(*param), data);
+                    break;
                 case JOG:
 				    ret = jog(static_cast<BasicFunctionParam &>(*param), data);
                 default:

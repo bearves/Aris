@@ -43,6 +43,7 @@ namespace aris
                     std::int32_t target_pos{ 0 }, feedback_pos{ 0 };
                     std::int32_t target_vel{ 0 }, feedback_vel{ 0 };
                     std::int16_t target_cur{ 0 }, feedback_cur{ 0 };
+                    std::uint32_t digital_inputs { 0 };
                     std::uint8_t cmd{ IDLE };
                     std::uint8_t mode{ POSITION };
                     std::uint16_t status_word { 0 };

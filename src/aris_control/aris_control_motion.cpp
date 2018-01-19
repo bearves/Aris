@@ -408,7 +408,7 @@ namespace aris
                     pdrv->readPdo(
                             io_mapping_->velocityActualValue_index, 
                             io_mapping_->velocityActualValue_subindex,
-                            vel); 					
+                            vel);
                     return vel;
                 };
 
@@ -421,6 +421,16 @@ namespace aris
                             cur);
                     return cur;
                 };
+
+                std::uint32_t dgi()
+                {
+                    std::uint32_t dgi;
+                    pdrv->readPdo(
+                            io_mapping_->digitalInputs_index,
+                            io_mapping_->digitalInputs_subindex,
+                            dgi);
+                    return dgi;
+                }
 
                 std::uint8_t operationMode()
                 {
@@ -564,6 +574,7 @@ namespace aris
             data.feedback_pos = imp_->pos();
             data.feedback_vel = imp_->vel();
             data.status_word  = imp_->statusWord();
+            data.digital_inputs = imp_->dgi();
         }
 
         auto EthercatMotion::hasFault()->bool
@@ -599,13 +610,14 @@ namespace aris
 
         auto EthercatMotion::printStatus() const -> void
         {
-            rt_printf("Mot PhyID %d: sw %5d om %2d pos %7d vel %7d cur %7d\n", 
+            rt_printf("Mot PhyID %d: sw %5d om %2d pos %7d vel %7d cur %7d dgi %7d \n", 
                     imp_->phy_id_, 
                     imp_->statusWord(),
                     imp_->operationMode(),
                     imp_->pos(),
                     imp_->vel(),
-                    imp_->cur()
+                    imp_->cur(),
+                    imp_->dgi()
                     );
         }
 
@@ -935,6 +947,7 @@ namespace aris
                                     file << d.feedback_pos << " ";
                                     file << d.feedback_vel << " ";
                                     file << d.feedback_cur << " ";
+                                    file << d.digital_inputs << " ";
                                 }
                                 file << std::endl;
                             }
@@ -967,7 +980,7 @@ namespace aris
 
         auto EthercatController::controlStrategy()->void
         {
-            /*构造传入strategy的参数*/
+            /* construct data structure for control strategy */
 			Data data{ 
                 &imp_->last_motion_rawdata_, 
                 &imp_->motion_rawdata_, 
@@ -977,13 +990,13 @@ namespace aris
                 nullptr, 
                 nullptr };
 
-            /*收取消息*/
+            /* receive message from NRT side */
             if (this->msgPipe().recvInRT(aris::core::MsgRT::instance[0]) > 0)
             {
                 data.msg_recv = &aris::core::MsgRT::instance[0];
             };
 
-            /*读取反馈*/
+            /* read hardware feedbacks */
 			if (imp_->motion_vec_.size() > 0)
             {
 				for (std::size_t i = 0; i < imp_->motion_vec_.size(); ++i)
@@ -1014,13 +1027,14 @@ namespace aris
 				}
  			}
 
-            /*执行自定义的控制策略*/
+            /* call customed control strategy function */
             if (imp_->strategy_)
             {
                 imp_->strategy_(data);
             }
 
-            /*重新读取反馈信息，因为strategy可能修改已做好的反馈信息，之后写入PDO，之后放进lastMotionData中*/
+            /* reread some feedbacks，since the strategy function could modified 
+               these data，after, send cmds to hardwares， and save this data in the lastMotionData */
             for (std::size_t i = 0; i < imp_->motion_rawdata_.size(); ++i)
             {
                 motionAtAbs(i).readFeedback(imp_->motion_rawdata_[i]);
@@ -1040,24 +1054,25 @@ namespace aris
                 }
             }
 
-            /*发送数据到记录的线程*/
+            /* send rawdata to recording thread */
             if (imp_->control_count_ % imp_->record_interval_)
             {
                 imp_->record_pipe_->sendToNrt(imp_->motion_rawdata_);
             }
 
-            /*向外发送消息*/
+            /* send back necessary messages */
             if (data.msg_send)
             {
                 this->msgPipe().sendToNrt(*data.msg_send);
             }
-
-            if (imp_->control_count_ % 100 == 0)
+            
+            // print debug info if necessary
+            if (imp_->control_count_ % 5000 == 0)
             {
-            //    motionAtPhy(0).printStatus();
-            //    rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
+                //motionAtPhy(0).printStatus();
+                //rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
                 if (imp_->imu_vec_.size() > 0){
-                    rt_printf("%f\t%f\t%f\t%f\t%f\t%f\n",
+                    rt_printf("IMU: %f\t%f\t%f\t%f\t%f\t%f\n",
                             imp_->imu_data_[0].accel[0],
                             imp_->imu_data_[0].accel[1],
                             imp_->imu_data_[0].accel[2],
@@ -1068,7 +1083,7 @@ namespace aris
 
                 if (imp_->force_sensor_rcc_vec_.size() > 0)
                 {
-                    rt_printf("%f\t%f\t%f\t%f\t%f\t%f\n",
+                    rt_printf("FSR: %f\t%f\t%f\t%f\t%f\t%f\n",
                             imp_->force_sensor_rcc_data_[0].force[0].Fx,
                             imp_->force_sensor_rcc_data_[0].force[0].Fy,
                             imp_->force_sensor_rcc_data_[0].force[0].Fz,
