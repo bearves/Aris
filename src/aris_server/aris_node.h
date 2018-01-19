@@ -2,9 +2,11 @@
 #define ARIS_NODE_H
 
 #include <string>
+#include <iostream>
 #include <sstream>
 #include <map>
 #include <memory>
+#include <algorithm>
 #include <vector>
 #include "aris_core.h"
 
