@@ -597,7 +597,7 @@ namespace aris
             {
                 parse_jog_func_(cmd, params, cmd_msg);
                 if (cmd_msg.size() != sizeof(JogFunctionParam))
-                    throw std::runtime_error("invalid msg length of parse function for hm");
+                    throw std::runtime_error("invalid msg length of parse function for jog");
                 JogFunctionParam* paramPtr = reinterpret_cast<JogFunctionParam *>(cmd_msg.data());
                 paramPtr->cmd_type = ControlServer::Imp::JOG;
                 
