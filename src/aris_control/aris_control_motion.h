@@ -55,6 +55,8 @@ namespace aris
                         const aris::core::XmlElement &xml_ele, 
                         aris::control::EthercatDriver &physical_driver);
                 auto hasFault()->bool;
+                auto isEnabled()->bool;
+                auto modeDisplay()->Mode;
                 auto readFeedback(RawData &data)->void;
                 auto writeCommand(const RawData &data)->void;
                 auto absID()->std::int32_t;

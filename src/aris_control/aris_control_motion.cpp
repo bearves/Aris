@@ -584,6 +584,18 @@ namespace aris
             return (motorState != 0x0003 && motorState != 0x0007 && motorState != 0x0001 && motorState != 0x0000) ? true : false;
         }
 
+        auto EthercatMotion::isEnabled()->bool
+        {
+            std::uint16_t statusword = imp_->statusWord();
+            int motorState = (statusword & 0x000F);
+            return (motorState == 0x0007) ? true : false;
+        }
+
+        auto EthercatMotion::modeDisplay()->Mode
+        {
+            return static_cast<Mode>(imp_->operationMode());
+        }
+
         auto EthercatMotion::absID()->std::int32_t { return imp_->abs_id_; };
 
         auto EthercatMotion::phyID()->std::int32_t { return imp_->phy_id_; };

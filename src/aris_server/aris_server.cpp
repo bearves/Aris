@@ -104,7 +104,8 @@ namespace aris
                 ParseFunc parse_clear_queue_func_{BasicCmdParseFunc(RobotCmdID::CLEAR_CMD_QUEUE)};
                 ParseFunc parse_home_func_       {BasicCmdParseFunc(RobotCmdID::HOME)};
                 ParseFunc parse_fake_home_func_  {BasicCmdParseFunc(RobotCmdID::FAKE_HOME)};
-                ParseFunc parse_zero_ruicong     {BasicCmdParseFunc(RobotCmdID::ZERO_RUICONG)};
+                ParseFunc parse_zero_ruicong_    {BasicCmdParseFunc(RobotCmdID::ZERO_RUICONG)};
+                ParseFunc parse_jog_func_        {BasicCmdParseFunc(RobotCmdID::JOG)};
 
 
                 // socket //
@@ -120,6 +121,21 @@ namespace aris
                 std::function<void(void)> on_exit_callback_{nullptr};
 
                 std::vector<double> motion_pos_;
+
+                // internal states for jog gait
+                enum JOG_STATE
+                {
+                    NOT_READY = 0,
+                    JOGGING   = 1,
+                    STOPPING  = 2,
+                    STOPPED   = 3
+                };
+
+                std::vector<JOG_STATE> motor_jog_states_;
+                std::vector<std::size_t> jog_state_count_;
+                std::vector<int> jog_stopping_vel_;
+                const double JOG_DEFAULT_ACCEL = 160000;
+                
                 friend class ControlServer;
         };
 
@@ -202,12 +218,14 @@ namespace aris
         {
             if (cmd_name == "en")
             {
-                if (gait_func)throw std::runtime_error("you can not set plan_func for \"en\" command");
+                if (gait_func)
+                    throw std::runtime_error("you can not set plan_func for \"en\" command");
                 this->parse_enable_func_ = parse_func;
             }
             else if (cmd_name == "ds")
             {
-                if (gait_func)throw std::runtime_error("you can not set plan_func for \"ds\" command");
+                if (gait_func)
+                    throw std::runtime_error("you can not set plan_func for \"ds\" command");
                 this->parse_disable_func_ = parse_func;
             }
             else if (cmd_name == "cq")
@@ -218,18 +236,27 @@ namespace aris
             }
             else if (cmd_name == "hm")
             {
-                if (gait_func)throw std::runtime_error("you can not set plan_func for \"hm\" command");
+                if (gait_func)
+                    throw std::runtime_error("you can not set plan_func for \"hm\" command");
                 this->parse_home_func_ = parse_func;
+            }
+            else if (cmd_name == "jog")
+            {
+                if (gait_func)
+                    throw std::runtime_error("you can not set plan_func for \"jog\" command");
+                this->parse_jog_func_ = parse_func;
             }
             else if (cmd_name == "fake_home")
             {
-                if (gait_func)throw std::runtime_error("you can not set plan_func for \"fake_home\" command");
+                if (gait_func)
+                    throw std::runtime_error("you can not set plan_func for \"fake_home\" command");
                 this->parse_home_func_ = parse_func;
             }
 			else if (cmd_name == "zrc")
 			{
-				if (gait_func)throw std::runtime_error("you can not set plan_func for \"zrc\" command");
-				this->parse_zero_ruicong = parse_func;
+				if (gait_func)
+                    throw std::runtime_error("you can not set plan_func for \"zrc\" command");
+				this->parse_zero_ruicong_ = parse_func;
 			}
             else
             {
@@ -254,6 +281,9 @@ namespace aris
             {
                 is_running_ = true;
                 motion_pos_.resize(controller_->motionNum());
+                motor_jog_states_.resize(controller_->motionNum());
+                jog_state_count_.resize(controller_->motionNum());
+                jog_stopping_vel_.resize(controller_->motionNum());
 //                if (imu_)imu_->start();
                 controller_->start();
             }
@@ -490,6 +520,7 @@ namespace aris
                 std::cout << std::string(paramPrintLength - i.first.length(), ' ') << i.first << " : " << i.second << std::endl;
             }
         }
+
         auto ControlServer::Imp::sendParam(const std::string &cmd, const std::map<std::string, std::string> &params)->void
         {
             aris::core::Msg cmd_msg;
@@ -524,6 +555,13 @@ namespace aris
                     throw std::runtime_error("invalid msg length of parse function for hm");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::HOME;
             }
+            else if (cmd == "jog")
+            {
+                parse_jog_func_(cmd, params, cmd_msg);
+                if (cmd_msg.size() != sizeof(BasicFunctionParam))
+                    throw std::runtime_error("invalid msg length of parse function for hm");
+                reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::JOG;
+            }
             else if (cmd == "fake_home")
             {
                 parse_fake_home_func_(cmd, params, cmd_msg);
@@ -533,7 +571,7 @@ namespace aris
             }
 			else if (cmd == "zrc")
 			{
-				parse_zero_ruicong(cmd, params, cmd_msg);
+				parse_zero_ruicong_(cmd, params, cmd_msg);
 				if (cmd_msg.size() != sizeof(BasicFunctionParam))
 				    throw std::runtime_error("invalid msg length of parse function for fake_home");
 				reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::ZERO_RUICONG;
@@ -631,7 +669,8 @@ namespace aris
             // 执行cmd queue中的cmd //
             if (imp->cmd_num_ > 0)
             {
-                if (imp->execute_cmd(imp->count_, imp->cmd_queue_[imp->current_cmd_], data) == 0)
+                auto ret = imp->execute_cmd(imp->count_, imp->cmd_queue_[imp->current_cmd_], data);
+                if (ret == 0)
                 {
                     rt_printf("cmd finished, spend %d counts\n\n", imp->count_ + 1);
                     imp->count_ = 0;
@@ -640,7 +679,8 @@ namespace aris
                 }
                 else
                 {
-                    if (++imp->count_ % 1000 == 0)
+                    imp->count_++;
+                    if (imp->count_ % 1000 == 0)
                         rt_printf("execute cmd in count: %d\n", imp->count_);
                 }
             }
@@ -812,24 +852,148 @@ namespace aris
 
         auto ControlServer::Imp::jog(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
         {
-            return 0;
+            using aris::control::EthercatMotion;
+
+            bool is_all_jog_finished = true;
+
+
+            for (std::size_t i = 0; i < controller_->motionNum(); ++i)
+            {
+                if (param.active_motor[i])
+                {
+                    if (param.count == 0)
+                    {
+                        // initalize jog states for each motor
+                        motor_jog_states_[i] = JOG_STATE::NOT_READY;
+                        jog_state_count_[i] = param.count+1;
+                        is_all_jog_finished = false;
+                    }
+                    else if (motor_jog_states_[i] == JOG_STATE::NOT_READY)
+                    {
+                        // check if this motor have been enabled with desired mode
+                        if (param.count != jog_state_count_[i] && data.motion_raw_data->operator[](i).ret == 0)
+                        {
+                            motor_jog_states_[i] = JOG_STATE::JOGGING;
+                            jog_state_count_[i] = param.count+1;
+                        }
+                        else{
+                            // enable this motor and switch it to VELOCITY mode
+                            data.motion_raw_data->operator[](i).cmd = EthercatMotion::ENABLE;
+                            data.motion_raw_data->operator[](i).mode = EthercatMotion::VELOCITY;
+                            data.motion_raw_data->operator[](i).target_vel = 0;
+                        }
+                        is_all_jog_finished = false;
+                    }
+                    else if (motor_jog_states_[i] == JOG_STATE::JOGGING)
+                    {
+                        // check if the stop signal is received or the time limit is reached
+                        bool stop_signal_received = false;
+                        bool time_limit_reached = (param.count > (jog_state_count_[i] + 2000));
+                        if (stop_signal_received || time_limit_reached)
+                        {
+                            motor_jog_states_[i] = JOG_STATE::STOPPING;
+                            jog_state_count_[i] = param.count+1;
+                            jog_stopping_vel_[i] = data.motion_raw_data->operator[](i).feedback_vel;
+                        }
+                        else
+                        {
+                            int desired_vel = 80000;
+                            double jog_acc = JOG_DEFAULT_ACCEL;
+
+                            // avoid singularity
+                            if (fabs(jog_acc) < 1)
+                                jog_acc = JOG_DEFAULT_ACCEL;
+
+                            // make jog_acc the same sign with the vel
+                            if (desired_vel < 0)
+                                jog_acc = -fabs(jog_acc);
+
+                            // jog motor 
+                            int jogging_count = param.count - jog_state_count_[i];
+                            if (jogging_count < fabs(desired_vel / jog_acc)*1000)
+                            {
+                                // accel motor
+                                data.motion_raw_data->operator[](i).target_vel = (int)(jog_acc/1000 * jogging_count);
+                            }
+                            else
+                            {
+                                // constant speed jogging
+                                data.motion_raw_data->operator[](i).target_vel = desired_vel;
+                            }
+
+                            data.motion_raw_data->operator[](i).cmd = EthercatMotion::RUN;
+                            data.motion_raw_data->operator[](i).mode = EthercatMotion::VELOCITY;
+                        }
+                        is_all_jog_finished = false;
+                    }
+                    else if (motor_jog_states_[i] == JOG_STATE::STOPPING)
+                    {
+                        double jog_dec = JOG_DEFAULT_ACCEL;
+                        if (fabs(jog_dec) < 1) 
+                            jog_dec = JOG_DEFAULT_ACCEL;
+
+                        // make jog_acc the same sign with the vel
+                        if (jog_stopping_vel_[i] < 0)
+                            jog_dec = -fabs(jog_dec);
+
+                        int deccel_count = fabs(jog_stopping_vel_[i] / jog_dec)*1000;
+                        //check if the motor comes to a stop
+                        if (param.count > (jog_state_count_[i]+deccel_count + 1))
+                        {
+                            motor_jog_states_[i] = JOG_STATE::STOPPED;
+                            jog_state_count_[i] = param.count+1;
+                        }
+                        else
+                        {
+                            int stopping_count = param.count - jog_state_count_[i];
+                            // deccel motor 
+                            if (stopping_count < deccel_count)
+                            {
+                                data.motion_raw_data->operator[](i).target_vel = 
+                                    (int)(jog_stopping_vel_[i] - jog_dec/1000 * stopping_count);
+                            }
+                            else
+                            {
+                                data.motion_raw_data->operator[](i).target_vel = 0;
+                            }
+                            data.motion_raw_data->operator[](i).cmd = EthercatMotion::RUN;
+                            data.motion_raw_data->operator[](i).mode = EthercatMotion::VELOCITY;
+                        }
+                        
+                        is_all_jog_finished = false;
+                    }
+                    else // the motor has reached the JOG_STATE::STOPPED state
+                    {
+                        if (param.count == jog_state_count_[i])
+                        {
+                            // switch motor back to the POSITION mode
+                            data.motion_raw_data->operator[](i).cmd = EthercatMotion::RUN;
+                            data.motion_raw_data->operator[](i).target_pos = data.motion_raw_data->operator[](i).feedback_pos;
+                            data.motion_raw_data->operator[](i).target_vel = 0;
+                            data.motion_raw_data->operator[](i).target_cur = 0;
+                        }
+                    }
+                }
+            }
+            return is_all_jog_finished ? 0 : 1;
         }
 
         auto ControlServer::Imp::fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
         {
             for (std::size_t i = 0; i < controller_->motionNum(); ++i)
             {
-                controller_->motionAtAbs(i).setPosOffset(static_cast<std::int32_t>(controller_->motionAtAbs(i).posOffset() +
-                            controller_->motionAtAbs(i).homeCount() - data.motion_raw_data->at(i).feedback_pos
+                auto& motion = controller_->motionAtAbs(i);
+                motion.setPosOffset( static_cast<std::int32_t>(
+                            motion.posOffset() + motion.homeCount() - data.motion_raw_data->at(i).feedback_pos
                             ));
             }
 
             for (std::size_t i = 0; i < controller_->motionNum(); ++i){
                 rt_printf("Pos2CountRatio %d\n", controller_->motionAtAbs(i).pos2countRatio());
                 rt_printf("Motpos: %.3f FeedbackPos: %d  posOffset: %d\n",
-                        controller_->motionAtAbs(0).homeCount(),
-                        data.motion_raw_data->at(0).feedback_pos,
-                        controller_->motionAtAbs(0).posOffset()
+                        controller_->motionAtAbs(i).homeCount(),
+                        data.motion_raw_data->at(i).feedback_pos,
+                        controller_->motionAtAbs(i).posOffset()
                         );
             }
 
