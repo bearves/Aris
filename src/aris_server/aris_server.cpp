@@ -135,6 +135,7 @@ namespace aris
                 std::vector<std::size_t> jog_state_count_;
                 std::vector<int> jog_stopping_vel_;
                 const double JOG_DEFAULT_ACCEL = 160000;
+                const int JOG_TIME_LIMIT_COUNT = 10000;
                 
                 friend class ControlServer;
         };
@@ -308,13 +309,15 @@ namespace aris
 
                 if (cmd == "start")
                 {
-                    if (is_running_)throw std::runtime_error("server already started, thus ignore command \"start\"");
+                    if (is_running_)
+                        throw std::runtime_error("server already started, thus ignore command \"start\"");
                     start();
                     return aris::core::Msg();
                 }
                 if (cmd == "stop")
                 {
-                    if (!is_running_)throw std::runtime_error("server already stopped, thus ignore command \"stop\"");
+                    if (!is_running_)
+                        throw std::runtime_error("server already stopped, thus ignore command \"stop\"");
                     stop();
                     return aris::core::Msg();
                 }
@@ -736,7 +739,8 @@ namespace aris
                     ret = zero_ruicong(static_cast<BasicFunctionParam &>(*param), data);
                     break;
                 case JOG:
-				    ret = jog(static_cast<BasicFunctionParam &>(*param), data);
+		    ret = jog(static_cast<BasicFunctionParam &>(*param), data);
+                    break;
                 default:
                     rt_printf("unknown cmd type\n");
                     ret = 0;
@@ -856,7 +860,6 @@ namespace aris
 
             bool is_all_jog_finished = true;
 
-
             for (std::size_t i = 0; i < controller_->motionNum(); ++i)
             {
                 if (param.active_motor[i])
@@ -888,7 +891,7 @@ namespace aris
                     {
                         // check if the stop signal is received or the time limit is reached
                         bool stop_signal_received = false;
-                        bool time_limit_reached = (param.count > (jog_state_count_[i] + 2000));
+                        bool time_limit_reached = (param.count > (jog_state_count_[i] + JOG_TIME_LIMIT_COUNT));
                         if (stop_signal_received || time_limit_reached)
                         {
                             motor_jog_states_[i] = JOG_STATE::STOPPING;
@@ -968,9 +971,11 @@ namespace aris
                         {
                             // switch motor back to the POSITION mode
                             data.motion_raw_data->operator[](i).cmd = EthercatMotion::RUN;
+                            data.motion_raw_data->operator[](i).mode = EthercatMotion::POSITION;
                             data.motion_raw_data->operator[](i).target_pos = data.motion_raw_data->operator[](i).feedback_pos;
                             data.motion_raw_data->operator[](i).target_vel = 0;
                             data.motion_raw_data->operator[](i).target_cur = 0;
+                            rt_printf("Motor %d jog stopped\n", i);
                         }
                     }
                 }

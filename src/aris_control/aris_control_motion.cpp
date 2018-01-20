@@ -329,14 +329,17 @@ namespace aris
 
                     std::uint8_t mode_Read = this->operationMode();
 
-                    if (motorState != 0x0007 || mode_Read != POSITION)
+                    if (motorState != 0x0007)
                     {
                         return -1;
                     }
                     else
                     {
                         std::int32_t current_pos = this->pos();
-
+                        pdrv->writePdo(
+                                io_mapping_->modeOfOperation_index, 
+                                io_mapping_->modeOfOperation_subindex, 
+                                static_cast<std::uint8_t>(POSITION));
                         pdrv->writePdo(
                                 io_mapping_->targetPosition_index, 
                                 io_mapping_->targetPosition_subindex, 
@@ -356,12 +359,16 @@ namespace aris
 
                     std::uint8_t mode_Read = this->operationMode();
 
-                    if (motorState != 0x0007 || mode_Read != VELOCITY)
+                    if (motorState != 0x0007)
                     {
                         return -1;
                     }
                     else
                     {
+                        pdrv->writePdo(
+                                io_mapping_->modeOfOperation_index, 
+                                io_mapping_->modeOfOperation_subindex, 
+                                static_cast<std::uint8_t>(VELOCITY));
                         pdrv->writePdo(
                                 io_mapping_->targetVelocity_index, 
                                 io_mapping_->targetVelocity_subindex,
@@ -379,12 +386,16 @@ namespace aris
 
                     std::uint8_t mode_Read = this->operationMode();
 
-                    if (motorState != 0x0007 || mode_Read != CURRENT) //need running and cur mode
+                    if (motorState != 0x0007) //need running and cur mode
                     {
                         return -1;
                     }
                     else
                     {
+                        pdrv->writePdo(
+                                io_mapping_->modeOfOperation_index, 
+                                io_mapping_->modeOfOperation_subindex, 
+                                static_cast<std::uint8_t>(CURRENT));
                         pdrv->writePdo(io_mapping_->targetTorque_index, 
                                 io_mapping_->targetTorque_subindex,
                                 cur);
@@ -797,8 +808,8 @@ namespace aris
             std::vector<EthercatForceSensor *> force_sensor_vec_;
             std::vector<EthercatForceSensor::Data> force_sensor_data_;
             
-			std::vector<EthercatForceSensorRuiCongCombo *> force_sensor_rcc_vec_;
-			std::vector<EthercatForceSensorRuiCongCombo::RuiCongComboData> force_sensor_rcc_data_;
+            std::vector<EthercatForceSensorRuiCongCombo *> force_sensor_rcc_vec_;
+            std::vector<EthercatForceSensorRuiCongCombo::RuiCongComboData> force_sensor_rcc_data_;
 
             std::vector<EthercatIMU *> imu_vec_;
             std::vector<EthercatIMU::Data> imu_data_;
