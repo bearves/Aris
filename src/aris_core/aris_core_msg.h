@@ -39,7 +39,7 @@ namespace aris
 			std::int32_t msg_size;
 			std::int32_t msg_id;
 			std::int64_t msg_type;
-			std::int64_t reserved1;
+			std::int64_t no_queue_flag;
 			std::int64_t reserved2;
 			std::int64_t reserved3;
 		};
@@ -63,6 +63,16 @@ namespace aris
 			*
 			*/
 			auto msgID() const->std::int32_t;
+
+			/** \brief set no_queue_flag for control server to determine whether to queue this message
+			*
+			*/
+            auto setNotQueueFlag(bool flag)->void;
+
+			/** \brief get no_queue_flag for control server to determine whether to queue this message
+			*
+			*/
+            auto notQueueFlag() const ->bool;
 			/** \brief 获取Msg中的数据地址
 			*
 			*/

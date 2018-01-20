@@ -182,6 +182,17 @@ namespace aris
 		{
 			return reinterpret_cast<MsgHeader *>(data_)->msg_id;
 		}
+
+        auto MsgBase::setNotQueueFlag(bool flag)->void
+        {
+			reinterpret_cast<MsgHeader *>(data_)->no_queue_flag = flag ? 1 : 0;
+        }
+
+        auto MsgBase::notQueueFlag() const ->bool
+        {
+			return reinterpret_cast<MsgHeader *>(data_)->no_queue_flag ? true : false;
+        }
+
 		const char* MsgBase::data() const
 		{
 			return size() > 0 ? &data_[sizeof(MsgHeader)] : nullptr;

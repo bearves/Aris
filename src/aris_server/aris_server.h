@@ -38,6 +38,15 @@ namespace aris
             };
 		};
 
+        // for jog 
+        struct JogFunctionParam : BasicFunctionParam
+        {
+        public:
+            int jog_velocity_in_count;
+            int jog_accel_in_count;
+            bool requireStop;
+        };
+
 		//for all ordinary gaits
 		struct GaitParamBase :BasicFunctionParam
 		{

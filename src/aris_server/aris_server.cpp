@@ -35,25 +35,6 @@ namespace aris
                     this->controller_ = aris::control::EthercatController::createInstance<aris::control::EthercatController>();
                 };
             private:
-                Imp(const Imp&) = delete;
-
-                auto onReceiveMsg(const aris::core::Msg &msg)->aris::core::Msg;
-                auto decodeMsg2Param(const aris::core::Msg &msg, std::string &cmd, std::map<std::string, std::string> &params)->void;
-                auto sendParam(const std::string &cmd, const std::map<std::string, std::string> &params)->void;
-
-                static auto tg(aris::control::EthercatController::Data &data)->int;
-                auto run(GaitParamBase &param, aris::control::EthercatController::Data &data)->int;
-                bool is_clear_cmd_queue_msg(char *cmd_param);
-                int  discard_all_cmd(aris::control::EthercatController::Data& data);
-                auto execute_cmd(int count, char *cmd, aris::control::EthercatController::Data &data)->int;
-                auto enable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-                auto disable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-                auto home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-                auto jog(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-                auto fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-                auto zero_ruicong(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-
-            private:
                 enum RobotCmdID
                 {
                     ENABLE,
@@ -67,6 +48,27 @@ namespace aris
                     ROBOT_CMD_COUNT,
                     CLEAR_CMD_QUEUE
                 };
+
+            private:
+                Imp(const Imp&) = delete;
+
+                auto onReceiveMsg(const aris::core::Msg &msg)->aris::core::Msg;
+                auto decodeMsg2Param(const aris::core::Msg &msg, std::string &cmd, std::map<std::string, std::string> &params)->void;
+                auto sendParam(const std::string &cmd, const std::map<std::string, std::string> &params)->void;
+                ParseFunc BasicCmdParseFunc(RobotCmdID cmd_id);
+                ParseFunc JogCmdParseFunc();
+
+                static auto tg(aris::control::EthercatController::Data &data)->int;
+                auto run(GaitParamBase &param, aris::control::EthercatController::Data &data)->int;
+                bool is_clear_cmd_queue_msg(char *cmd_param);
+                int  discard_all_cmd(aris::control::EthercatController::Data& data);
+                auto execute_cmd(int count, char *cmd, aris::control::EthercatController::Data &data)->int;
+                auto enable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
+                auto disable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
+                auto home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
+                auto jog(const JogFunctionParam &param, aris::control::EthercatController::Data &data)->int;
+                auto fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
+                auto zero_ruicong(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
 
             private:
                 std::atomic_bool is_running_{false};
@@ -84,19 +86,6 @@ namespace aris
                 std::vector<ParseFunc> parser_vec_; // store parse func
                 std::map<std::string, std::unique_ptr<CommandStruct> > cmd_struct_map_;//store Node of command
 
-                ParseFunc BasicCmdParseFunc(RobotCmdID cmd_id)
-                {
-                    return [cmd_id, this](
-                            const std::string &cmd, 
-                            const std::map<std::string, std::string> &params,
-                            aris::core::Msg &msg)
-                    {
-                        BasicFunctionParam param;
-                        param.cmd_type = cmd_id;
-                        std::fill_n(param.active_motor, this->controller_->motionNum(), true);
-                        msg.copyStruct(param);
-                    } ;
-                }
 
                 // 储存特殊命令的parse_func //
                 ParseFunc parse_enable_func_     {BasicCmdParseFunc(RobotCmdID::ENABLE)};
@@ -105,7 +94,7 @@ namespace aris
                 ParseFunc parse_home_func_       {BasicCmdParseFunc(RobotCmdID::HOME)};
                 ParseFunc parse_fake_home_func_  {BasicCmdParseFunc(RobotCmdID::FAKE_HOME)};
                 ParseFunc parse_zero_ruicong_    {BasicCmdParseFunc(RobotCmdID::ZERO_RUICONG)};
-                ParseFunc parse_jog_func_        {BasicCmdParseFunc(RobotCmdID::JOG)};
+                ParseFunc parse_jog_func_        {JogCmdParseFunc()};
 
 
                 // socket //
@@ -131,6 +120,7 @@ namespace aris
                     STOPPED   = 3
                 };
 
+                std::atomic_bool jog_stop_signal_received_{false};
                 std::vector<JOG_STATE> motor_jog_states_;
                 std::vector<std::size_t> jog_state_count_;
                 std::vector<int> jog_stopping_vel_;
@@ -276,6 +266,51 @@ namespace aris
                 }
             }
         };
+
+        ParseFunc ControlServer::Imp::BasicCmdParseFunc(RobotCmdID cmd_id)
+        {
+            return [cmd_id, this](
+                    const std::string &cmd, 
+                    const std::map<std::string, std::string> &params,
+                    aris::core::Msg &msg)
+            {
+                BasicFunctionParam param;
+                param.cmd_type = cmd_id;
+                std::fill_n(param.active_motor, this->controller_->motionNum(), true);
+                msg.copyStruct(param);
+            } ;
+        }
+
+        ParseFunc ControlServer::Imp::JogCmdParseFunc()
+        {
+            return [this](
+                    const std::string &cmd, 
+                    const std::map<std::string, std::string> &params,
+                    aris::core::Msg &msg)
+            {
+                JogFunctionParam param;
+                param.cmd_type = RobotCmdID::JOG;
+                std::fill_n(param.active_motor, this->controller_->motionNum(), true);
+
+                for (auto i : params)
+                {
+                    if (i.first == "vel")
+                    {
+                        param.jog_velocity_in_count = std::stoi(i.second);
+                    }
+                    else if (i.first == "acc")
+                    {
+                        param.jog_accel_in_count = std::stoi(i.second);
+                    }
+                    else if (i.first == "stop")
+                    {
+                        param.requireStop = (std::stoi(i.second)) == 1 ? true : false;
+                    }
+                }
+                msg.copyStruct(param);
+            };
+        }
+
         auto ControlServer::Imp::start()->void
         {
             if (!is_running_)
@@ -561,9 +596,22 @@ namespace aris
             else if (cmd == "jog")
             {
                 parse_jog_func_(cmd, params, cmd_msg);
-                if (cmd_msg.size() != sizeof(BasicFunctionParam))
+                if (cmd_msg.size() != sizeof(JogFunctionParam))
                     throw std::runtime_error("invalid msg length of parse function for hm");
-                reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::JOG;
+                JogFunctionParam* paramPtr = reinterpret_cast<JogFunctionParam *>(cmd_msg.data());
+                paramPtr->cmd_type = ControlServer::Imp::JOG;
+                
+                // post process to change internal jog state
+                if (paramPtr->requireStop)
+                {
+                    jog_stop_signal_received_ = true;
+                    // not queue this message since we only want to change the stop bit for ongoing jogging cmd
+                    cmd_msg.setNotQueueFlag(true);
+                }
+                else
+                {
+                    jog_stop_signal_received_ = false;
+                }
             }
             else if (cmd == "fake_home")
             {
@@ -602,7 +650,10 @@ namespace aris
             }
 
             cmd_msg.setMsgID(0);
-            controller_->msgPipe().sendToRT(cmd_msg);
+
+            
+            if (!cmd_msg.notQueueFlag())
+                controller_->msgPipe().sendToRT(cmd_msg);
         }
 
         auto ControlServer::Imp::tg(aris::control::EthercatController::Data &data)->int
@@ -739,7 +790,7 @@ namespace aris
                     ret = zero_ruicong(static_cast<BasicFunctionParam &>(*param), data);
                     break;
                 case JOG:
-		    ret = jog(static_cast<BasicFunctionParam &>(*param), data);
+                    ret = jog(static_cast<JogFunctionParam &>(*param), data);
                     break;
                 default:
                     rt_printf("unknown cmd type\n");
@@ -854,7 +905,7 @@ namespace aris
             return is_all_homed ? 0 : 1;
         };
 
-        auto ControlServer::Imp::jog(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
+        auto ControlServer::Imp::jog(const JogFunctionParam &param, aris::control::EthercatController::Data &data)->int
         {
             using aris::control::EthercatMotion;
 
@@ -869,6 +920,7 @@ namespace aris
                         // initalize jog states for each motor
                         motor_jog_states_[i] = JOG_STATE::NOT_READY;
                         jog_state_count_[i] = param.count+1;
+                        jog_stop_signal_received_ = false;
                         is_all_jog_finished = false;
                     }
                     else if (motor_jog_states_[i] == JOG_STATE::NOT_READY)
@@ -890,9 +942,8 @@ namespace aris
                     else if (motor_jog_states_[i] == JOG_STATE::JOGGING)
                     {
                         // check if the stop signal is received or the time limit is reached
-                        bool stop_signal_received = false;
                         bool time_limit_reached = (param.count > (jog_state_count_[i] + JOG_TIME_LIMIT_COUNT));
-                        if (stop_signal_received || time_limit_reached)
+                        if (jog_stop_signal_received_ || time_limit_reached)
                         {
                             motor_jog_states_[i] = JOG_STATE::STOPPING;
                             jog_state_count_[i] = param.count+1;
@@ -900,8 +951,8 @@ namespace aris
                         }
                         else
                         {
-                            int desired_vel = 80000;
-                            double jog_acc = JOG_DEFAULT_ACCEL;
+                            int desired_vel = param.jog_velocity_in_count;
+                            double jog_acc = param.jog_accel_in_count;
 
                             // avoid singularity
                             if (fabs(jog_acc) < 1)
@@ -931,7 +982,7 @@ namespace aris
                     }
                     else if (motor_jog_states_[i] == JOG_STATE::STOPPING)
                     {
-                        double jog_dec = JOG_DEFAULT_ACCEL;
+                        double jog_dec = param.jog_accel_in_count;
                         if (fabs(jog_dec) < 1) 
                             jog_dec = JOG_DEFAULT_ACCEL;
 
@@ -980,6 +1031,10 @@ namespace aris
                     }
                 }
             }
+
+            if (is_all_jog_finished)
+                jog_stop_signal_received_ = false;
+
             return is_all_jog_finished ? 0 : 1;
         }
 
