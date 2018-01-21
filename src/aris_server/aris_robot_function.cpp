@@ -146,6 +146,7 @@ namespace aris
                                             ));
                             }
                         }
+                        is_all_hmsw_finished = false;
                     }
                     else // the motor has reached the HMSW_STATE::HOME_FINISHED state
                     {
