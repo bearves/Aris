@@ -10,6 +10,7 @@ namespace aris
             motor_jog_states_.resize(motorNum);
             jog_state_count_.resize(motorNum);
             jog_stopping_vel_.resize(motorNum);
+            return 0;
         }
 
         int JogPlanner::jog(const JogFunctionParam &param, aris::control::EthercatController::Data &data)
@@ -189,6 +190,7 @@ namespace aris
                 jog_stop_signal_received_ = false;
                 notQueueFlag = false;
             }
+            return notQueueFlag;
         }
     }
 
