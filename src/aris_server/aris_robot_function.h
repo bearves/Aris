@@ -34,6 +34,14 @@ namespace aris
                 };
         };
 
+        // for hmsw
+        struct HmswFunctionParam : BasicFunctionParam
+        {
+            public:
+                int hmsw_velocity_in_count;
+                int hmsw_accel_in_count;
+        };
+
         // for jog 
         struct JogFunctionParam : BasicFunctionParam
         {
@@ -62,10 +70,38 @@ namespace aris
         typedef std::function<void(const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg_out)> ParseFunc;
         typedef std::function<int(aris::model::Model &, const PlanParamBase &)> PlanFunc;
 
+        class HomeSwitchPlanner
+        {
+            public:
+                // internal states for home by switch
+                enum HMSW_STATE
+                {
+                    NOT_READY       = 0,
+                    HOMING          = 1,
+                    SWITCH_REACHED  = 2,
+                    SETTING_OFFSET  = 3,
+                    HOME_FINISHED   = 4
+                };
+
+                int initialize(int motorNum);
+                ParseFunc hmswCmdParseFunc();
+                int hmsw(const HmswFunctionParam &param, 
+                        aris::control::EthercatController::Data &data,
+                        aris::control::EthercatController &controller);
+
+            private:
+                std::size_t motorNum_;
+                const double HMSW_DEFAULT_ACCEL = 200000;
+                const double HMSW_DEFAULT_VEL   = 20000;
+                std::vector<HMSW_STATE> motor_hmsw_states_;
+                std::vector<std::size_t> hmsw_state_count_;
+                std::vector<int> hmsw_stopping_vel_;
+        };
+
         class JogPlanner
         {
             public:
-                // internal states for jog gait
+                // internal states for jogging
                 enum JOG_STATE
                 {
                     NOT_READY = 0,

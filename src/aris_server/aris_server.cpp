@@ -44,6 +44,7 @@ namespace aris
                     FAKE_HOME,
                     ZERO_RUICONG,
                     JOG,
+                    HMSW,
 
                     ROBOT_CMD_COUNT,
                     CLEAR_CMD_QUEUE
@@ -94,6 +95,9 @@ namespace aris
                 ParseFunc parse_zero_ruicong_    {BasicCmdParseFunc(RobotCmdID::ZERO_RUICONG)};
 
                 // Fundamental robot function planners
+                // Home by switch planner
+                HomeSwitchPlanner hmsw_planner_;
+                ParseFunc parse_hmsw_func_        {hmsw_planner_.hmswCmdParseFunc()};
                 // Jog planner
                 JogPlanner jog_planner_;
                 ParseFunc parse_jog_func_        {jog_planner_.jogCmdParseFunc()};
@@ -223,6 +227,12 @@ namespace aris
                     throw std::runtime_error("you can not set plan_func for \"jog\" command");
                 this->parse_jog_func_ = parse_func;
             }
+            else if (cmd_name == "hmsw")
+            {
+                if (gait_func)
+                    throw std::runtime_error("you can not set plan_func for \"hmsw\" command");
+                this->parse_hmsw_func_ = parse_func;
+            }
             else if (cmd_name == "fake_home")
             {
                 if (gait_func)
@@ -275,6 +285,7 @@ namespace aris
                 is_running_ = true;
                 motion_pos_.resize(controller_->motionNum());
                 jog_planner_.initialize(controller_->motionNum());
+                hmsw_planner_.initialize(controller_->motionNum());
 //                if (imu_)imu_->start();
                 controller_->start();
             }
@@ -548,6 +559,14 @@ namespace aris
                     throw std::runtime_error("invalid msg length of parse function for hm");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::HOME;
             }
+            else if (cmd == "hmsw")
+            {
+                parse_hmsw_func_(cmd, params, cmd_msg);
+                if (cmd_msg.size() != sizeof(HmswFunctionParam))
+                    throw std::runtime_error("invalid msg length of parse function for hmsw");
+                HmswFunctionParam* paramPtr = reinterpret_cast<HmswFunctionParam *>(cmd_msg.data());
+                paramPtr->cmd_type = ControlServer::Imp::HMSW;
+            }
             else if (cmd == "jog")
             {
                 parse_jog_func_(cmd, params, cmd_msg);
@@ -735,6 +754,9 @@ namespace aris
                     break;
                 case ZERO_RUICONG:
                     ret = zero_ruicong(static_cast<BasicFunctionParam &>(*param), data);
+                    break;
+                case HMSW:
+                    ret = hmsw_planner_.hmsw(static_cast<HmswFunctionParam &>(*param), data, *this->controller_);
                     break;
                 case JOG:
                     ret = jog_planner_.jog(static_cast<JogFunctionParam &>(*param), data);
