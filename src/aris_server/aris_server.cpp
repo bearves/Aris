@@ -56,7 +56,6 @@ namespace aris
                 auto decodeMsg2Param(const aris::core::Msg &msg, std::string &cmd, std::map<std::string, std::string> &params)->void;
                 auto sendParam(const std::string &cmd, const std::map<std::string, std::string> &params)->void;
                 ParseFunc BasicCmdParseFunc(RobotCmdID cmd_id);
-                ParseFunc JogCmdParseFunc();
 
                 static auto tg(aris::control::EthercatController::Data &data)->int;
                 auto run(GaitParamBase &param, aris::control::EthercatController::Data &data)->int;
@@ -66,7 +65,6 @@ namespace aris
                 auto enable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto disable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-                auto jog(const JogFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto zero_ruicong(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
 
@@ -94,8 +92,11 @@ namespace aris
                 ParseFunc parse_home_func_       {BasicCmdParseFunc(RobotCmdID::HOME)};
                 ParseFunc parse_fake_home_func_  {BasicCmdParseFunc(RobotCmdID::FAKE_HOME)};
                 ParseFunc parse_zero_ruicong_    {BasicCmdParseFunc(RobotCmdID::ZERO_RUICONG)};
-                ParseFunc parse_jog_func_        {JogCmdParseFunc()};
 
+                // Fundamental robot function planners
+                // Jog planner
+                JogPlanner jog_planner_;
+                ParseFunc parse_jog_func_        {jog_planner_.jogCmdParseFunc()};
 
                 // socket //
                 aris::core::Socket server_socket_;
@@ -111,21 +112,6 @@ namespace aris
 
                 std::vector<double> motion_pos_;
 
-                // internal states for jog gait
-                enum JOG_STATE
-                {
-                    NOT_READY = 0,
-                    JOGGING   = 1,
-                    STOPPING  = 2,
-                    STOPPED   = 3
-                };
-
-                std::atomic_bool jog_stop_signal_received_{false};
-                std::vector<JOG_STATE> motor_jog_states_;
-                std::vector<std::size_t> jog_state_count_;
-                std::vector<int> jog_stopping_vel_;
-                const double JOG_DEFAULT_ACCEL = 160000;
-                const int JOG_TIME_LIMIT_COUNT = 10000;
                 
                 friend class ControlServer;
         };
@@ -281,35 +267,6 @@ namespace aris
             } ;
         }
 
-        ParseFunc ControlServer::Imp::JogCmdParseFunc()
-        {
-            return [this](
-                    const std::string &cmd, 
-                    const std::map<std::string, std::string> &params,
-                    aris::core::Msg &msg)
-            {
-                JogFunctionParam param;
-                param.cmd_type = RobotCmdID::JOG;
-                std::fill_n(param.active_motor, this->controller_->motionNum(), true);
-
-                for (auto i : params)
-                {
-                    if (i.first == "vel")
-                    {
-                        param.jog_velocity_in_count = std::stoi(i.second);
-                    }
-                    else if (i.first == "acc")
-                    {
-                        param.jog_accel_in_count = std::stoi(i.second);
-                    }
-                    else if (i.first == "stop")
-                    {
-                        param.requireStop = (std::stoi(i.second)) == 1 ? true : false;
-                    }
-                }
-                msg.copyStruct(param);
-            };
-        }
 
         auto ControlServer::Imp::start()->void
         {
@@ -317,9 +274,7 @@ namespace aris
             {
                 is_running_ = true;
                 motion_pos_.resize(controller_->motionNum());
-                motor_jog_states_.resize(controller_->motionNum());
-                jog_state_count_.resize(controller_->motionNum());
-                jog_stopping_vel_.resize(controller_->motionNum());
+                jog_planner_.initialize(controller_->motionNum());
 //                if (imu_)imu_->start();
                 controller_->start();
             }
@@ -601,17 +556,9 @@ namespace aris
                 JogFunctionParam* paramPtr = reinterpret_cast<JogFunctionParam *>(cmd_msg.data());
                 paramPtr->cmd_type = ControlServer::Imp::JOG;
                 
-                // post process to change internal jog state
-                if (paramPtr->requireStop)
-                {
-                    jog_stop_signal_received_ = true;
-                    // not queue this message since we only want to change the stop bit for ongoing jogging cmd
-                    cmd_msg.setNotQueueFlag(true);
-                }
-                else
-                {
-                    jog_stop_signal_received_ = false;
-                }
+                // post process to change jog planner's internal state
+                auto not_queue_flag = jog_planner_.jogCmdPostProcess(*paramPtr);
+                cmd_msg.setNotQueueFlag(not_queue_flag);
             }
             else if (cmd == "fake_home")
             {
@@ -790,7 +737,7 @@ namespace aris
                     ret = zero_ruicong(static_cast<BasicFunctionParam &>(*param), data);
                     break;
                 case JOG:
-                    ret = jog(static_cast<JogFunctionParam &>(*param), data);
+                    ret = jog_planner_.jog(static_cast<JogFunctionParam &>(*param), data);
                     break;
                 default:
                     rt_printf("unknown cmd type\n");
@@ -905,138 +852,6 @@ namespace aris
             return is_all_homed ? 0 : 1;
         };
 
-        auto ControlServer::Imp::jog(const JogFunctionParam &param, aris::control::EthercatController::Data &data)->int
-        {
-            using aris::control::EthercatMotion;
-
-            bool is_all_jog_finished = true;
-
-            for (std::size_t i = 0; i < controller_->motionNum(); ++i)
-            {
-                if (param.active_motor[i])
-                {
-                    if (param.count == 0)
-                    {
-                        // initalize jog states for each motor
-                        motor_jog_states_[i] = JOG_STATE::NOT_READY;
-                        jog_state_count_[i] = param.count+1;
-                        jog_stop_signal_received_ = false;
-                        is_all_jog_finished = false;
-                    }
-                    else if (motor_jog_states_[i] == JOG_STATE::NOT_READY)
-                    {
-                        // check if this motor have been enabled with desired mode
-                        if (param.count != jog_state_count_[i] && data.motion_raw_data->operator[](i).ret == 0)
-                        {
-                            motor_jog_states_[i] = JOG_STATE::JOGGING;
-                            jog_state_count_[i] = param.count+1;
-                        }
-                        else{
-                            // enable this motor and switch it to VELOCITY mode
-                            data.motion_raw_data->operator[](i).cmd = EthercatMotion::ENABLE;
-                            data.motion_raw_data->operator[](i).mode = EthercatMotion::VELOCITY;
-                            data.motion_raw_data->operator[](i).target_vel = 0;
-                        }
-                        is_all_jog_finished = false;
-                    }
-                    else if (motor_jog_states_[i] == JOG_STATE::JOGGING)
-                    {
-                        // check if the stop signal is received or the time limit is reached
-                        bool time_limit_reached = (param.count > (jog_state_count_[i] + JOG_TIME_LIMIT_COUNT));
-                        if (jog_stop_signal_received_ || time_limit_reached)
-                        {
-                            motor_jog_states_[i] = JOG_STATE::STOPPING;
-                            jog_state_count_[i] = param.count+1;
-                            jog_stopping_vel_[i] = data.motion_raw_data->operator[](i).feedback_vel;
-                        }
-                        else
-                        {
-                            int desired_vel = param.jog_velocity_in_count;
-                            double jog_acc = param.jog_accel_in_count;
-
-                            // avoid singularity
-                            if (fabs(jog_acc) < 1)
-                                jog_acc = JOG_DEFAULT_ACCEL;
-
-                            // make jog_acc the same sign with the vel
-                            if (desired_vel < 0)
-                                jog_acc = -fabs(jog_acc);
-
-                            // jog motor 
-                            int jogging_count = param.count - jog_state_count_[i];
-                            if (jogging_count < fabs(desired_vel / jog_acc)*1000)
-                            {
-                                // accel motor
-                                data.motion_raw_data->operator[](i).target_vel = (int)(jog_acc/1000 * jogging_count);
-                            }
-                            else
-                            {
-                                // constant speed jogging
-                                data.motion_raw_data->operator[](i).target_vel = desired_vel;
-                            }
-
-                            data.motion_raw_data->operator[](i).cmd = EthercatMotion::RUN;
-                            data.motion_raw_data->operator[](i).mode = EthercatMotion::VELOCITY;
-                        }
-                        is_all_jog_finished = false;
-                    }
-                    else if (motor_jog_states_[i] == JOG_STATE::STOPPING)
-                    {
-                        double jog_dec = param.jog_accel_in_count;
-                        if (fabs(jog_dec) < 1) 
-                            jog_dec = JOG_DEFAULT_ACCEL;
-
-                        // make jog_acc the same sign with the vel
-                        if (jog_stopping_vel_[i] < 0)
-                            jog_dec = -fabs(jog_dec);
-
-                        int deccel_count = fabs(jog_stopping_vel_[i] / jog_dec)*1000;
-                        //check if the motor comes to a stop
-                        if (param.count > (jog_state_count_[i]+deccel_count + 1))
-                        {
-                            motor_jog_states_[i] = JOG_STATE::STOPPED;
-                            jog_state_count_[i] = param.count+1;
-                        }
-                        else
-                        {
-                            int stopping_count = param.count - jog_state_count_[i];
-                            // deccel motor 
-                            if (stopping_count < deccel_count)
-                            {
-                                data.motion_raw_data->operator[](i).target_vel = 
-                                    (int)(jog_stopping_vel_[i] - jog_dec/1000 * stopping_count);
-                            }
-                            else
-                            {
-                                data.motion_raw_data->operator[](i).target_vel = 0;
-                            }
-                            data.motion_raw_data->operator[](i).cmd = EthercatMotion::RUN;
-                            data.motion_raw_data->operator[](i).mode = EthercatMotion::VELOCITY;
-                        }
-                        
-                        is_all_jog_finished = false;
-                    }
-                    else // the motor has reached the JOG_STATE::STOPPED state
-                    {
-                        if (param.count == jog_state_count_[i])
-                        {
-                            // switch motor back to the POSITION mode
-                            data.motion_raw_data->operator[](i).cmd = EthercatMotion::RUN;
-                            data.motion_raw_data->operator[](i).mode = EthercatMotion::POSITION;
-                            data.motion_raw_data->operator[](i).target_pos = data.motion_raw_data->operator[](i).feedback_pos;
-                            data.motion_raw_data->operator[](i).target_vel = 0;
-                            data.motion_raw_data->operator[](i).target_cur = 0;
-                            rt_printf("Motor %d jog stopped\n", i);
-                        }
-                    }
-                }
-            }
-
-            if (is_all_jog_finished)
-                jog_stop_signal_received_ = false;
-
-            return is_all_jog_finished ? 0 : 1;
-        }
 
         auto ControlServer::Imp::fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
         {

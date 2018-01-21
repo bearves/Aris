@@ -102,7 +102,7 @@ add_library(aris_control SHARED ${FULL_SRC} ${FULL_H} src/aris_control/aris_cont
 set(INCLUDE_HEADER_FILES ${INCLUDE_HEADER_FILES} ${FULL_H} src/aris_control/aris_control.h)
 
 # aris control server project
-set(SOURCE aris_server aris_node)
+set(SOURCE aris_server aris_node aris_robot_function)
 PREPEND_CPP(FULL_SRC src/aris_server ${SOURCE})
 PREPEND_H(FULL_H src/aris_server ${SOURCE})
 add_library(aris_server SHARED ${FULL_SRC} ${FULL_H})
