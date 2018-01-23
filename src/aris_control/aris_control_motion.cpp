@@ -819,7 +819,8 @@ namespace aris
 
             std::int32_t control_count_;
 
-            const std::int32_t record_interval_ = 2;
+            std::int32_t record_freq_ = 500;
+            std::int32_t record_interval_ = DEFAULT_CONTROL_FREQ / record_freq_;
         };
 
         EthercatController::~EthercatController() {};
@@ -828,10 +829,15 @@ namespace aris
 
         auto EthercatController::loadXml(const aris::core::XmlElement &xml_ele)->void
         {
+            // set control freq
+            EthercatMaster::setControlFreq(xml_ele);
+            setRecordFreq(xml_ele);
+            
             /*Load EtherCat slave types*/
             std::map<std::string, const aris::core::XmlElement *> slaveTypeMap;
+            auto ecat_xml_ele = xml_ele.FirstChildElement("EtherCat");
 
-            auto pSlaveTypes = xml_ele.FirstChildElement("SlaveType");
+            auto pSlaveTypes = ecat_xml_ele->FirstChildElement("SlaveType");
             for (auto type_xml_ele = pSlaveTypes->FirstChildElement(); type_xml_ele; type_xml_ele = type_xml_ele->NextSiblingElement())
             {
                 slaveTypeMap.insert(std::make_pair(std::string(type_xml_ele->name()), type_xml_ele));
@@ -844,7 +850,7 @@ namespace aris
  			imp_->force_sensor_rcc_vec_.clear();
  			imp_->imu_vec_.clear();
 
-            auto slave_xml = xml_ele.FirstChildElement("Slave");
+            auto slave_xml = ecat_xml_ele->FirstChildElement("Slave");
             printf("Adding slaves\n");
             for (auto sla = slave_xml->FirstChildElement(); sla; sla = sla->NextSiblingElement())
             {
@@ -865,7 +871,7 @@ namespace aris
 				}
                 else if (type == "MeHeavyEIMU")
                 {
-                    imp_->imu_vec_.push_back(addSlave<EthercatIMU>(std::ref(*slaveTypeMap.at(type))));
+                    imp_->imu_vec_.push_back(addSlave<EthercatIMU>(std::ref(*slaveTypeMap.at(type)), this->getControlFreq()));
                     printf("Adding IMU %s\n", type.c_str());
                 }
                 else
@@ -875,7 +881,7 @@ namespace aris
             }
 
             // Load all logic axes
-            auto motion_xml = xml_ele.FirstChildElement("LogicMotionAxis");
+            auto motion_xml = ecat_xml_ele->FirstChildElement("LogicMotionAxis");
 
             printf("Adding LogicMotionAxis\n");
             for (auto axis = motion_xml->FirstChildElement(); axis; axis = axis->NextSiblingElement())
@@ -935,6 +941,14 @@ namespace aris
             }
 
             imp_->strategy_ = strategy;
+        }
+
+        void EthercatController::setRecordFreq(const aris::core::XmlElement &xml_ele)
+        {
+            imp_->record_freq_ = std::stoi(xml_ele.Attribute("record_freq"));
+            imp_->record_interval_ = getControlFreq()/imp_->record_freq_;
+            printf("Record Frequency set to %d Hz, interval set to %d\n", 
+                            imp_->record_freq_, imp_->record_interval_);
         }
 
         auto EthercatController::start()->void
@@ -1090,7 +1104,7 @@ namespace aris
             }
             
             // print debug info if necessary
-            if (imp_->control_count_ % 5000 == 0)
+            if (imp_->control_count_ % getControlFreq() * 5 == 0)
             {
                 //motionAtPhy(0).printStatus();
                 //rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);

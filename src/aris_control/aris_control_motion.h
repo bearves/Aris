@@ -184,13 +184,13 @@ namespace aris
 
                 auto readData(Data &data)->void;
 
-                EthercatIMU(const aris::core::XmlElement &xml_ele): EthercatSlave(xml_ele)
+                EthercatIMU(const aris::core::XmlElement &xml_ele, int sample_freq): EthercatSlave(xml_ele)
                 {
                     gyro_h_resolution = 0.02;
                     gyro_l_resolution  = 0.01/256.0;
                     accel_h_resolution = 0.25;
                     accel_l_resolution = 0.125/256.0;
-                    madgwick_filter.begin(1000.0);
+                    madgwick_filter.begin(sample_freq);
                 }
             protected:
                 // resolution ratios
@@ -237,6 +237,7 @@ namespace aris
                 virtual auto controlStrategy()->void override final;
 
             private:
+                void setRecordFreq(const aris::core::XmlElement &xml_ele);
                 struct Imp;
                 std::unique_ptr<Imp> imp_;
 

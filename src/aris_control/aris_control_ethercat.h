@@ -101,10 +101,14 @@ namespace aris
 				this->addSlavePtr(sla);
 				return sla;
 			}
+
+			static const int DEFAULT_CONTROL_FREQ = 1000;
+			auto getControlFreq() -> int;
 			
 		protected:
 			EthercatMaster();
 			virtual auto controlStrategy()->void {};
+			auto setControlFreq(const aris::core::XmlElement &xml_ele)->void;
 			
 		private:
 			EthercatMaster(const EthercatMaster &other) = delete;
@@ -113,7 +117,7 @@ namespace aris
 			EthercatMaster & operator=(EthercatMaster &&other) = delete;
 			auto addSlavePtr(EthercatSlave *pSla)->void;
 			
-		private:
+		protected:
 			class Imp;
 			std::unique_ptr<Imp> imp_;
 

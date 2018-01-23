@@ -1,13 +1,5 @@
-﻿#ifdef WIN32
-#define rt_printf printf
-#include <windows.h>
-#undef CM_NONE
-#endif
-#ifdef UNIX
-#include "rtdk.h"
+﻿#include "rtdk.h"
 #include "unistd.h"
-#endif
-
 
 #include <cstring>
 #include <thread>
@@ -26,6 +18,7 @@ namespace aris
             public:
                 auto loadXml(const aris::core::XmlDocument &doc)->void;
                 auto addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const PlanFunc &gait_func)->void;
+                auto setMotionSelector(const MotionSelector &user_motion_selector)->void;
                 auto start()->void;
                 auto stop()->void;
 
@@ -56,21 +49,19 @@ namespace aris
                 auto onReceiveMsg(const aris::core::Msg &msg)->aris::core::Msg;
                 auto decodeMsg2Param(const aris::core::Msg &msg, std::string &cmd, std::map<std::string, std::string> &params)->void;
                 auto sendParam(const std::string &cmd, const std::map<std::string, std::string> &params)->void;
-                ParseFunc BasicCmdParseFunc(RobotCmdID cmd_id);
+                MotionSelector defaultMotionSelector();
 
                 static auto tg(aris::control::EthercatController::Data &data)->int;
-                auto run(GaitParamBase &param, aris::control::EthercatController::Data &data)->int;
                 bool is_clear_cmd_queue_msg(char *cmd_param);
                 int  discard_all_cmd(aris::control::EthercatController::Data& data);
                 auto execute_cmd(int count, char *cmd, aris::control::EthercatController::Data &data)->int;
-                auto enable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-                auto disable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-                auto home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-                auto fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
-                auto zero_ruicong(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
+                auto run(GaitParamBase &param, aris::control::EthercatController::Data &data)->int;
 
             private:
                 std::atomic_bool is_running_{false};
+
+                // control frequency settings, it can be configured in the XML file
+                static int control_frequency_;
 
                 ControlServer *server_;
 
@@ -85,19 +76,23 @@ namespace aris
                 std::vector<ParseFunc> parser_vec_; // store parse func
                 std::map<std::string, std::unique_ptr<CommandStruct> > cmd_struct_map_;//store Node of command
 
-
-                // 储存特殊命令的parse_func //
-                ParseFunc parse_enable_func_     {BasicCmdParseFunc(RobotCmdID::ENABLE)};
-                ParseFunc parse_disable_func_    {BasicCmdParseFunc(RobotCmdID::DISABLE)};
-                ParseFunc parse_clear_queue_func_{BasicCmdParseFunc(RobotCmdID::CLEAR_CMD_QUEUE)};
-                ParseFunc parse_home_func_       {BasicCmdParseFunc(RobotCmdID::HOME)};
-                ParseFunc parse_fake_home_func_  {BasicCmdParseFunc(RobotCmdID::FAKE_HOME)};
-                ParseFunc parse_zero_ruicong_    {BasicCmdParseFunc(RobotCmdID::ZERO_RUICONG)};
+                // reserved basic command names
+                std::vector<std::string> basic_cmd_list_ 
+                {"en", "ds", "hm", "jog", "hmsw", "fake_home", "zrc", "cq"};
 
                 // Fundamental robot function planners
+                BasicPlanner basic_planner_;
+                ParseFunc parse_enable_func_     {basic_planner_.basicParseFunc()};
+                ParseFunc parse_disable_func_    {basic_planner_.basicParseFunc()};
+                ParseFunc parse_clear_queue_func_{basic_planner_.basicParseFunc()};
+                ParseFunc parse_home_func_       {basic_planner_.basicParseFunc()};
+                ParseFunc parse_fake_home_func_  {basic_planner_.basicParseFunc()};
+                ParseFunc parse_zero_ruicong_    {basic_planner_.basicParseFunc()};
+
                 // Home by switch planner
                 HomeSwitchPlanner hmsw_planner_;
                 ParseFunc parse_hmsw_func_        {hmsw_planner_.hmswCmdParseFunc()};
+
                 // Jog planner
                 JogPlanner jog_planner_;
                 ParseFunc parse_jog_func_        {jog_planner_.jogCmdParseFunc()};
@@ -116,9 +111,10 @@ namespace aris
 
                 std::vector<double> motion_pos_;
 
-                
                 friend class ControlServer;
         };
+
+        int ControlServer::Imp::control_frequency_ = aris::control::EthercatMaster::DEFAULT_CONTROL_FREQ;
 
         auto ControlServer::Imp::loadXml(const aris::core::XmlDocument &doc)->void
         {
@@ -139,10 +135,9 @@ namespace aris
 
             /*begin to load controller_*/
             controller_->loadXml(std::ref(*doc.RootElement()->
-                        FirstChildElement("Controller")->
-                        FirstChildElement("EtherCat")));
-
+                        FirstChildElement("Controller")));
             controller_->setControlStrategy(tg);
+            control_frequency_ = controller_->getControlFreq();
 
             /*load connection param*/
             server_socket_ip_ = doc.RootElement()->FirstChildElement("Server")->Attribute("ip");
@@ -163,6 +158,15 @@ namespace aris
                 cmd_struct_map_.insert(std::make_pair(std::string(pChild->name()), std::unique_ptr<CommandStruct>(new CommandStruct(pChild->name()))));
                 AddAllParams(pChild, cmd_struct_map_.at(pChild->name())->root.get(), cmd_struct_map_.at(pChild->name())->allParams, cmd_struct_map_.at(pChild->name())->shortNames);
             }
+
+            // setup planners
+            motion_pos_.resize(controller_->motionNum());
+            jog_planner_.initializeStates(controller_->motionNum());
+            hmsw_planner_.initializeStates(controller_->motionNum());
+
+            basic_planner_.setMotionSelector(defaultMotionSelector());
+            jog_planner_.setMotionSelector(defaultMotionSelector());
+            hmsw_planner_.setMotionSelector(defaultMotionSelector());
 
             /*Set socket connection callback function*/
             server_socket_.setOnReceivedConnection([](aris::core::Socket *pConn, const char *pRemoteIP, int remotePort)
@@ -197,54 +201,11 @@ namespace aris
 
         auto ControlServer::Imp::addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const PlanFunc &gait_func)->void
         {
-            if (cmd_name == "en")
+            auto it = std::find(basic_cmd_list_.begin(), basic_cmd_list_.end(), cmd_name);
+            if (it != basic_cmd_list_.end())
             {
-                if (gait_func)
-                    throw std::runtime_error("you can not set plan_func for \"en\" command");
-                this->parse_enable_func_ = parse_func;
+                throw std::runtime_error("you can not set plan_func for reserved basic command");
             }
-            else if (cmd_name == "ds")
-            {
-                if (gait_func)
-                    throw std::runtime_error("you can not set plan_func for \"ds\" command");
-                this->parse_disable_func_ = parse_func;
-            }
-            else if (cmd_name == "cq")
-            {
-                if (gait_func)
-                    throw std::runtime_error("you can not set plan_func for \"cq\" command");
-                this->parse_clear_queue_func_ = parse_func;
-            }
-            else if (cmd_name == "hm")
-            {
-                if (gait_func)
-                    throw std::runtime_error("you can not set plan_func for \"hm\" command");
-                this->parse_home_func_ = parse_func;
-            }
-            else if (cmd_name == "jog")
-            {
-                if (gait_func)
-                    throw std::runtime_error("you can not set plan_func for \"jog\" command");
-                this->parse_jog_func_ = parse_func;
-            }
-            else if (cmd_name == "hmsw")
-            {
-                if (gait_func)
-                    throw std::runtime_error("you can not set plan_func for \"hmsw\" command");
-                this->parse_hmsw_func_ = parse_func;
-            }
-            else if (cmd_name == "fake_home")
-            {
-                if (gait_func)
-                    throw std::runtime_error("you can not set plan_func for \"fake_home\" command");
-                this->parse_home_func_ = parse_func;
-            }
-			else if (cmd_name == "zrc")
-			{
-				if (gait_func)
-                    throw std::runtime_error("you can not set plan_func for \"zrc\" command");
-				this->parse_zero_ruicong_ = parse_func;
-			}
             else
             {
                 if (cmd_id_map_.find(cmd_name) != cmd_id_map_.end())
@@ -263,29 +224,26 @@ namespace aris
             }
         };
 
-        ParseFunc ControlServer::Imp::BasicCmdParseFunc(RobotCmdID cmd_id)
+        auto ControlServer::Imp::setMotionSelector(const MotionSelector &user_motion_selector)->void
         {
-            return [cmd_id, this](
-                    const std::string &cmd, 
-                    const std::map<std::string, std::string> &params,
-                    aris::core::Msg &msg)
-            {
-                BasicFunctionParam param;
-                param.cmd_type = cmd_id;
-                std::fill_n(param.active_motor, this->controller_->motionNum(), true);
-                msg.copyStruct(param);
-            } ;
+           this->basic_planner_.setMotionSelector(user_motion_selector);
+           this->jog_planner_.setMotionSelector(user_motion_selector);
+           this->hmsw_planner_.setMotionSelector(user_motion_selector);
         }
 
+        MotionSelector ControlServer::Imp::defaultMotionSelector()
+        {
+            return [this](const std::map<std::string, std::string> &dom, aris::server::BasicFunctionParam &param)
+            {
+                std::fill_n(param.active_motor, this->controller_->motionNum(), true);
+            };
+        }
 
         auto ControlServer::Imp::start()->void
         {
             if (!is_running_)
             {
                 is_running_ = true;
-                motion_pos_.resize(controller_->motionNum());
-                jog_planner_.initialize(controller_->motionNum());
-                hmsw_planner_.initialize(controller_->motionNum());
 //                if (imu_)imu_->start();
                 controller_->start();
             }
@@ -529,16 +487,18 @@ namespace aris
         {
             aris::core::Msg cmd_msg;
 
+            bool queue_flag = false;
+
             if (cmd == "en")
             {
-                parse_enable_func_(cmd, params, cmd_msg);
+                queue_flag = parse_enable_func_(cmd, params, cmd_msg);
                 if (cmd_msg.size() != sizeof(BasicFunctionParam))
                     throw std::runtime_error("invalid msg length of parse function for en");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::ENABLE;
             }
             else if (cmd == "ds")
             {
-                parse_disable_func_(cmd, params, cmd_msg);
+                queue_flag = parse_disable_func_(cmd, params, cmd_msg);
                 if (cmd_msg.size() != sizeof(BasicFunctionParam))
                     throw std::runtime_error("invalid msg length of parse function for ds");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::DISABLE;
@@ -546,7 +506,7 @@ namespace aris
             else if (cmd == "cq")
             {
                 std::cout << "Clear Queue message is received, all commands are canceled and all motors are disabled" << std::endl;
-                parse_clear_queue_func_(cmd, params, cmd_msg);
+                queue_flag = parse_clear_queue_func_(cmd, params, cmd_msg);
                 if (cmd_msg.size() != sizeof(BasicFunctionParam))
                     throw std::runtime_error("invalid msg length of parse function for cq");
 
@@ -554,14 +514,14 @@ namespace aris
             }
             else if (cmd == "hm")
             {
-                parse_home_func_(cmd, params, cmd_msg);
+                queue_flag = parse_home_func_(cmd, params, cmd_msg);
                 if (cmd_msg.size() != sizeof(BasicFunctionParam))
                     throw std::runtime_error("invalid msg length of parse function for hm");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::HOME;
             }
             else if (cmd == "hmsw")
             {
-                parse_hmsw_func_(cmd, params, cmd_msg);
+                queue_flag = parse_hmsw_func_(cmd, params, cmd_msg);
                 if (cmd_msg.size() != sizeof(HmswFunctionParam))
                     throw std::runtime_error("invalid msg length of parse function for hmsw");
                 HmswFunctionParam* paramPtr = reinterpret_cast<HmswFunctionParam *>(cmd_msg.data());
@@ -569,28 +529,24 @@ namespace aris
             }
             else if (cmd == "jog")
             {
-                parse_jog_func_(cmd, params, cmd_msg);
+                queue_flag = parse_jog_func_(cmd, params, cmd_msg);
                 if (cmd_msg.size() != sizeof(JogFunctionParam))
                     throw std::runtime_error("invalid msg length of parse function for jog");
                 JogFunctionParam* paramPtr = reinterpret_cast<JogFunctionParam *>(cmd_msg.data());
                 paramPtr->cmd_type = ControlServer::Imp::JOG;
-                
-                // post process to change jog planner's internal state
-                auto not_queue_flag = jog_planner_.jogCmdPostProcess(*paramPtr);
-                cmd_msg.setNotQueueFlag(not_queue_flag);
             }
             else if (cmd == "fake_home")
             {
-                parse_fake_home_func_(cmd, params, cmd_msg);
+                queue_flag = parse_fake_home_func_(cmd, params, cmd_msg);
                 if (cmd_msg.size() != sizeof(BasicFunctionParam))
                     throw std::runtime_error("invalid msg length of parse function for fake_home");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::FAKE_HOME;
             }
 			else if (cmd == "zrc")
 			{
-				parse_zero_ruicong_(cmd, params, cmd_msg);
+				queue_flag = parse_zero_ruicong_(cmd, params, cmd_msg);
 				if (cmd_msg.size() != sizeof(BasicFunctionParam))
-				    throw std::runtime_error("invalid msg length of parse function for fake_home");
+				    throw std::runtime_error("invalid msg length of parse function for zrc");
 				reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::ZERO_RUICONG;
 			}
             else
@@ -602,7 +558,7 @@ namespace aris
                     throw std::runtime_error(std::string("command \"") + cmd + "\" does not have gait function, please AddCmd() first");
                 }
 
-                this->parser_vec_.at(cmdPair->second).operator()(cmd, params, cmd_msg);
+                queue_flag = this->parser_vec_.at(cmdPair->second).operator()(cmd, params, cmd_msg);
 
                 if (cmd_msg.size() < sizeof(GaitParamBase))
                 {
@@ -616,9 +572,10 @@ namespace aris
             }
 
             cmd_msg.setMsgID(0);
+            cmd_msg.setNotQueueFlag(!queue_flag);
 
             
-            if (!cmd_msg.notQueueFlag())
+            if (queue_flag)
                 controller_->msgPipe().sendToRT(cmd_msg);
         }
 
@@ -640,7 +597,7 @@ namespace aris
             if (error_motor != data.motion_raw_data->end())
             {
                 fault_count++;
-                if (fault_count % 100 == 0)
+                if (fault_count % (control_frequency_/10) == 0)
                 {
                     for (auto &mot_data : *data.motion_raw_data)rt_printf("%d ", mot_data.ret);
 
@@ -650,7 +607,7 @@ namespace aris
                                such fault lasts for 1 second\n");
                 }
                 
-                if (fault_count % 1000 == 0)
+                if (fault_count % control_frequency_ == 0)
                 {
                     imp->discard_all_cmd(data);
                     rt_printf("All commands in command queue are discarded\n");
@@ -700,7 +657,7 @@ namespace aris
                 else
                 {
                     imp->count_++;
-                    if (imp->count_ % 1000 == 0)
+                    if (imp->count_ % control_frequency_ == 0)
                         rt_printf("execute cmd in count: %d\n", imp->count_);
                 }
             }
@@ -738,28 +695,28 @@ namespace aris
             switch (param->cmd_type)
             {
                 case ENABLE:
-                    ret = enable(static_cast<BasicFunctionParam &>(*param), data);
+                    ret = basic_planner_.enable(static_cast<BasicFunctionParam &>(*param), data, *this->controller_);
                     break;
                 case DISABLE:
-                    ret = disable(static_cast<BasicFunctionParam &>(*param), data);
+                    ret = basic_planner_.disable(static_cast<BasicFunctionParam &>(*param), data, *this->controller_);
                     break;
                 case HOME:
-                    ret = home(static_cast<BasicFunctionParam &>(*param), data);
+                    ret = basic_planner_.home(static_cast<BasicFunctionParam &>(*param), data, *this->controller_);
                     break;
                 case FAKE_HOME:
-                    ret = fake_home(static_cast<BasicFunctionParam &>(*param), data);
-                    break;
-                case RUN_GAIT:
-                    ret = run(static_cast<GaitParamBase &>(*param), data);
+                    ret = basic_planner_.fake_home(static_cast<BasicFunctionParam &>(*param), data, *this->controller_);
                     break;
                 case ZERO_RUICONG:
-                    ret = zero_ruicong(static_cast<BasicFunctionParam &>(*param), data);
+                    ret = basic_planner_.zero_ruicong(static_cast<BasicFunctionParam &>(*param), data, *this->controller_);
                     break;
                 case HMSW:
                     ret = hmsw_planner_.hmsw(static_cast<HmswFunctionParam &>(*param), data, *this->controller_);
                     break;
                 case JOG:
-                    ret = jog_planner_.jog(static_cast<JogFunctionParam &>(*param), data);
+                    ret = jog_planner_.jog(static_cast<JogFunctionParam &>(*param), data, *this->controller_);
+                    break;
+                case RUN_GAIT:
+                    ret = run(static_cast<GaitParamBase &>(*param), data);
                     break;
                 default:
                     rt_printf("unknown cmd type\n");
@@ -769,151 +726,7 @@ namespace aris
 
             return ret;
         }
-        auto ControlServer::Imp::enable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
-        {
-            bool is_all_enabled = true;
-
-            for (std::size_t i = 0; i < controller_->motionNum(); ++i)
-            {
-                if (param.active_motor[i])
-                {
-                    /*判断是否已经Enable了*/
-                    if ((param.count != 0) && (data.motion_raw_data->operator[](i).ret == 0))
-                    {
-                        /*判断是否为第一次走到enable,否则什么也不做，这样就会继续刷上次的值*/
-                        if (data.motion_raw_data->operator[](i).cmd == aris::control::EthercatMotion::ENABLE)
-                        {
-                            data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::RUN;
-                            data.motion_raw_data->operator[](i).mode = aris::control::EthercatMotion::POSITION;
-                            data.motion_raw_data->operator[](i).target_pos = data.motion_raw_data->operator[](i).feedback_pos;
-                            data.motion_raw_data->operator[](i).target_vel = 0;
-                            data.motion_raw_data->operator[](i).target_cur = 0;
-                        }
-                    }
-                    else
-                    {
-                        is_all_enabled = false;
-                        data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::ENABLE;
-                        data.motion_raw_data->operator[](i).mode = aris::control::EthercatMotion::POSITION;
-
-                        if (param.count % 1000 == 0)
-                        {
-                            rt_printf("Unenabled motor, physical id: %d, absolute id: %d\n", this->controller_->motionAtAbs(i).phyID(), i);
-                        }
-                    }
-                }
-            }
-
-            return is_all_enabled ? 0 : 1;
-        };
-        auto ControlServer::Imp::disable(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
-        {
-            bool is_all_disabled = true;
-
-            for (std::size_t i = 0; i < controller_->motionNum(); ++i)
-            {
-                if (param.active_motor[i])
-                {
-                    /*判断是否已经Disabled了*/
-                    if ((param.count != 0) && (data.motion_raw_data->operator[](i).ret == 0))
-                    {
-                        /*如果已经disable了，那么什么都不做*/
-                    }
-                    else
-                    {
-                        /*否则往下刷disable指令*/
-                        is_all_disabled = false;
-                        data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::DISABLE;
-
-                        if (param.count % 1000 == 0)
-                        {
-                            rt_printf("Undisabled motor, physical id: %d, absolute id: %d\n", this->controller_->motionAtAbs(i).phyID(), i);
-                        }
-                    }
-                }
-            }
-
-            return is_all_disabled ? 0 : 1;
-        }
-        auto ControlServer::Imp::home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
-        {
-            bool is_all_homed = true;
-
-            for (std::size_t i = 0; i < controller_->motionNum(); ++i)
-            {
-                if (param.active_motor[i])
-                {
-                    // 将电机的偏置置为0 //
-                    controller_->motionAtAbs(i).setPosOffset(0);
-
-                    // 根据返回值来判断是否走到home了 //
-                    if ((param.count != 0) && (data.motion_raw_data->operator[](i).ret == 0))
-                    {
-                        // 判断是否为第一次走到home,否则什么也不做，这样就会继续刷上次的值 //
-                        if (data.motion_raw_data->operator[](i).cmd == aris::control::EthercatMotion::HOME)
-                        {
-                            data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::RUN;
-                            data.motion_raw_data->operator[](i).target_pos = data.motion_raw_data->operator[](i).feedback_pos;
-                            data.motion_raw_data->operator[](i).target_vel = 0;
-                            data.motion_raw_data->operator[](i).target_cur = 0;
-                        }
-                    }
-                    else
-                    {
-                        is_all_homed = false;
-                        data.motion_raw_data->operator[](i).cmd = aris::control::EthercatMotion::HOME;
-
-                        if (param.count % 1000 == 0)
-                        {
-                            rt_printf("Unhomed motor, physical id: %d, absolute id: %d\n", this->controller_->motionAtAbs(i).phyID(), i);
-                        }
-                    }
-                }
-            }
-
-            return is_all_homed ? 0 : 1;
-        };
-
-
-        auto ControlServer::Imp::fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
-        {
-            for (std::size_t i = 0; i < controller_->motionNum(); ++i)
-            {
-                auto& motion = controller_->motionAtAbs(i);
-                motion.setPosOffset( static_cast<std::int32_t>(
-                            motion.posOffset() + motion.homeCount() - data.motion_raw_data->at(i).feedback_pos
-                            ));
-            }
-
-            for (std::size_t i = 0; i < controller_->motionNum(); ++i){
-                rt_printf("Pos2CountRatio %d\n", controller_->motionAtAbs(i).pos2countRatio());
-                rt_printf("Motpos: %.3f FeedbackPos: %d  posOffset: %d\n",
-                        controller_->motionAtAbs(i).homeCount(),
-                        data.motion_raw_data->at(i).feedback_pos,
-                        controller_->motionAtAbs(i).posOffset()
-                        );
-            }
-
-            return 0;
-        };
         
-		auto ControlServer::Imp::zero_ruicong(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
-		{
-			for (std::size_t i = 0; i < data.ruicongcombo_data->at(0).isZeroingRequested.size(); i++)
-			{
-				if (param.active_channel[i])
-				{
-					data.ruicongcombo_data->at(0).isZeroingRequested.at(i) = true;
-					rt_printf("zeroing channel: %d\n",i);
-				}
-				else
-				{
-					data.ruicongcombo_data->at(0).isZeroingRequested.at(i) = false;
-					rt_printf("not zeroing channel: %d\n", i);
-				}
-			}
-			return 0;
-		}
 
         auto ControlServer::Imp::run(GaitParamBase &param, aris::control::EthercatController::Data &data)->int
         {
@@ -1092,6 +905,16 @@ namespace aris
             imp->addCmd(cmd_name, parse_func, gait_func);
         }
 
+        auto ControlServer::setMotionSelector(const MotionSelector &user_motion_selector)->void
+        {
+            imp->setMotionSelector(user_motion_selector);
+        }
+
+        auto ControlServer::getControlFreq()->int
+        {
+            return controller().getControlFreq();
+        }
+
         auto ControlServer::open()->void 
         {
             for (;;)
@@ -1113,6 +936,7 @@ namespace aris
         {
             imp->server_socket_.stop();
         };
+
         auto ControlServer::setOnExit(std::function<void(void)> callback_func)->void
         {
             this->imp->on_exit_callback_ = callback_func;

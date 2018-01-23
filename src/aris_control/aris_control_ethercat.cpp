@@ -266,7 +266,8 @@ namespace aris
                 std::vector<std::unique_ptr<EthercatSlave> > slave_vec_;
                 ec_master_t* ec_master_;
 
-                const int sample_period_ns_ = 1000000;
+                int control_freq_ = EthercatMaster::DEFAULT_CONTROL_FREQ;
+                int sample_period_ns_ = 1e9/control_freq_;
 
                 std::atomic_bool is_running_{ false }, is_stopping_{ false };
 
@@ -328,13 +329,16 @@ namespace aris
             //}
 
             // Configure the slave's PDOs and sync masters
-            if (ecrt_slave_config_pdos(this->ec_slave_config_, 4, this->ec_sync_info_))throw std::runtime_error("failed to slave config pdos");
+            if (ecrt_slave_config_pdos(this->ec_slave_config_, 4, this->ec_sync_info_))
+                throw std::runtime_error("failed to slave config pdos");
 
             // Configure the slave's domain
-            if (ecrt_domain_reg_pdo_entry_list(this->domain_, this->ec_pdo_entry_reg_vec_.data()))throw std::runtime_error("failed domain_reg_pdo_entry");
+            if (ecrt_domain_reg_pdo_entry_list(this->domain_, this->ec_pdo_entry_reg_vec_.data()))
+                throw std::runtime_error("failed domain_reg_pdo_entry");
 
-            // Configure the slave's discrete clock			
-            if (this->distributed_clock_)ecrt_slave_config_dc(this->ec_slave_config_, *this->distributed_clock_.get(), 1000000, 0, 0, 0);
+            // Configure the slave's discrete clock	
+            if (this->distributed_clock_)
+                ecrt_slave_config_dc(this->ec_slave_config_, *this->distributed_clock_.get(), 1000000, 0, 0, 0);
 #endif
         };
         template<typename DataType>
@@ -526,19 +530,46 @@ namespace aris
             static std::unique_ptr<EthercatMaster> instance_ptr;
             return std::ref(instance_ptr);
         };
+
+        auto EthercatMaster::setControlFreq(const aris::core::XmlElement &xml_ele)->void
+        {
+            // set control freq
+            int control_freq = std::stoi(xml_ele.Attribute("control_freq"));
+
+            if (control_freq == 1000 || control_freq == 2000 || control_freq == 4000)
+            {
+                printf("EthercatMaster control frequency set to %d Hz\n", control_freq);
+                imp_->control_freq_ = control_freq;
+            }
+            else
+            {
+                printf("Inproper control frequency settings, use default instead\n");
+                imp_->control_freq_ = DEFAULT_CONTROL_FREQ;
+            }
+            imp_->sample_period_ns_ = 1e9/imp_->control_freq_;
+        }
+
+        auto EthercatMaster::getControlFreq()->int
+        {
+            return imp_->control_freq_;
+        }
+
         auto EthercatMaster::loadXml(const aris::core::XmlElement &xml_ele)->void
         {
+            setControlFreq(xml_ele);
+
             // Load EtherCat slave types //
             std::map<std::string, const aris::core::XmlElement *> slaveTypeMap;
+            auto ecat_xml_ele = xml_ele.FirstChildElement("EtherCat");
 
-            auto pSlaveTypes = xml_ele.FirstChildElement("SlaveType");
+            auto pSlaveTypes = ecat_xml_ele->FirstChildElement("SlaveType");
             for (auto pType = pSlaveTypes->FirstChildElement(); pType != nullptr; pType = pType->NextSiblingElement())
             {
                 slaveTypeMap.insert(std::make_pair(std::string(pType->name()), pType));
             }
 
             // Load all slaves //
-            auto pSlaves = xml_ele.FirstChildElement("Slave");
+            auto pSlaves = ecat_xml_ele->FirstChildElement("Slave");
             for (auto pSla = pSlaves->FirstChildElement(); pSla != nullptr; pSla = pSla->NextSiblingElement())
             {
                 this->addSlave<EthercatSlave>(std::ref(*slaveTypeMap.at(std::string(pSla->Attribute("type")))));

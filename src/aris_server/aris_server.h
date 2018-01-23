@@ -29,6 +29,8 @@ namespace aris
 			auto loadXml(const aris::core::XmlDocument &xmlDoc)->void;
 			auto model()->model::Model&;
 			auto controller()->control::EthercatController&;
+			auto setMotionSelector(const MotionSelector &user_motion_selector)->void;
+			auto getControlFreq()->int;
 			auto addCmd(const std::string &cmd_name, const ParseFunc &parse_func, const PlanFunc &gait_func)->void;
 			auto open()->void;
 			auto close()->void;
