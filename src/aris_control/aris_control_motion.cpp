@@ -469,7 +469,7 @@ namespace aris
                             static_cast<std::int32_t>(home_count));
                 };
 
-                std::int32_t input2count_;
+                double input2count_;
                 std::int32_t home_count_;
                 std::int32_t max_pos_count_;
                 std::int32_t min_pos_count_;
@@ -505,7 +505,7 @@ namespace aris
         {
             imp_->SetIOMapping(xml_ele);
 
-            if (xml_ele.QueryIntAttribute("input2count", &imp_->input2count_) != tinyxml2::XML_NO_ERROR)
+            if (xml_ele.QueryDoubleAttribute("input2count", &imp_->input2count_) != tinyxml2::XML_NO_ERROR)
             {
                 throw std::runtime_error("failed to find motion attribute \"input2count\"");
             }
@@ -617,7 +617,7 @@ namespace aris
 
         auto EthercatMotion::maxVelCount()->std::int32_t { return imp_->max_vel_count_; };
 
-        auto EthercatMotion::pos2countRatio()->std::int32_t { return imp_->input2count_; };
+        auto EthercatMotion::pos2countRatio()->double { return imp_->input2count_; };
 
         auto EthercatMotion::homeCount()->std::int32_t { return imp_->home_count_; };
 

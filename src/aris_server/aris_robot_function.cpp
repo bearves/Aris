@@ -149,7 +149,7 @@ namespace aris
             }
 
             for (std::size_t i = 0; i < controller.motionNum(); ++i){
-                rt_printf("Pos2CountRatio %d\n", controller.motionAtAbs(i).pos2countRatio());
+                rt_printf("Pos2CountRatio %.3f\n", controller.motionAtAbs(i).pos2countRatio());
                 rt_printf("Motpos: %.3f FeedbackPos: %d  posOffset: %d\n",
                         controller.motionAtAbs(i).homeCount(),
                         data.motion_raw_data->at(i).feedback_pos,

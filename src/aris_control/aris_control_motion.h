@@ -65,7 +65,7 @@ namespace aris
                 auto minPosCount()->std::int32_t;
                 auto maxVelCount()->std::int32_t;
                 auto homeCount()->std::int32_t;
-                auto pos2countRatio()->std::int32_t;
+                auto pos2countRatio()->double;
                 auto setPosOffset(std::int32_t offset)->void;
                 auto posOffset()const->std::int32_t;
                 auto printStatus() const -> void;
