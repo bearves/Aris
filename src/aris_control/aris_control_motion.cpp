@@ -335,7 +335,6 @@ namespace aris
                     }
                     else
                     {
-                        std::int32_t current_pos = this->pos();
                         pdrv->writePdo(
                                 io_mapping_->modeOfOperation_index, 
                                 io_mapping_->modeOfOperation_subindex, 
@@ -975,8 +974,8 @@ namespace aris
 
                                 count += imp_->record_interval_;
 
-                                file << count << " ";
-
+                                //file << count << " ";
+                                file << data[0].current_time << " ";
                                 for (auto &d : data)
                                 {
                                     file << d.status_word  << " ";
@@ -986,6 +985,7 @@ namespace aris
                                     file << d.feedback_cur << " ";
                                     file << d.digital_inputs << " ";
                                 }
+                                
                                 file << std::endl;
                             }
 
@@ -1017,6 +1017,7 @@ namespace aris
 
         auto EthercatController::controlStrategy()->void
         {
+            RTIME time_now = rt_timer_read();
             /* construct data structure for control strategy */
 			Data data{ 
                 &imp_->last_motion_rawdata_, 
@@ -1090,6 +1091,9 @@ namespace aris
                     }
                 }
             }
+            
+            // pack current timestamp for logging
+            imp_->motion_rawdata_[0].current_time = time_now;
 
             /* send rawdata to recording thread */
             if (imp_->control_count_ % imp_->record_interval_)

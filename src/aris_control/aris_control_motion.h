@@ -5,6 +5,7 @@
 #include <thread>
 #include <atomic>
 #include <array>
+#include <native/timer.h>
 
 #include <aris_control_ethercat.h>
 #include "MadgwickAHRS.h"
@@ -33,10 +34,10 @@ namespace aris
                 };
                 enum Mode
                 {
-                    HOMING   = 0x0006,
-                    POSITION = 0x0008,
-                    VELOCITY = 0x0009,
-                    CURRENT  = 0x0010,
+                    HOMING   = 0x06,
+                    POSITION = 0x08,
+                    VELOCITY = 0x09,
+                    CURRENT  = 0x10,
                 };
                 struct RawData
                 {
@@ -47,6 +48,7 @@ namespace aris
                     std::uint8_t cmd{ IDLE };
                     std::uint8_t mode{ POSITION };
                     std::uint16_t status_word { 0 };
+                    RTIME current_time { 0ll };
                     mutable std::int16_t ret{ 0 };
                 };
 

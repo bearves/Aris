@@ -756,23 +756,6 @@ namespace aris
             PlanFunc func = this->plan_vec_.at(param.gait_id);
             int ret = func(*model_.get(), param);
 
-            // write cmds to drives //
-            for (std::size_t i = 0; i < controller_->motionNum(); ++i)
-            {
-                if (param.active_motor[i])
-                {
-                    auto driveData = data.motion_raw_data->operator[](i); 
-                    auto controlData = param.motion_raw_data->operator[](i); 
-                    
-                    // only write outputs, since the PlanFunc could modify feedback data
-                    driveData.cmd = controlData.cmd;
-                    driveData.mode = controlData.mode;
-                    driveData.target_pos = controlData.target_pos;
-                    driveData.target_vel = controlData.target_vel;
-                    driveData.target_cur = controlData.target_cur;
-                }
-            }
-
             // 检查位置极限和速度是否连续 //
             for (std::size_t i = 0; i<imp->controller_->motionNum(); ++i)
             {
