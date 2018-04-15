@@ -338,7 +338,7 @@ namespace aris
 
             // Configure the slave's discrete clock	
             if (this->distributed_clock_)
-                ecrt_slave_config_dc(this->ec_slave_config_, *this->distributed_clock_.get(), 1000000, 0, 0, 0);
+                ecrt_slave_config_dc(this->ec_slave_config_, *this->distributed_clock_.get(), 10000000, 0, 0, 0);
 #endif
         };
         template<typename DataType>
