@@ -311,7 +311,7 @@ namespace aris
                     {
                         // after setting new posOffset, we should wait a few counts for
                         // new feedback_pos to be updated
-                        if (param.count > (hmsw_state_count_[i] + 2))
+                        if (data.motion_raw_data->operator[](i).ret == 0 && param.count > hmsw_state_count_[i]+10)
                         {
                             motor_hmsw_states_[i] = HMSW_STATE::HOME_FINISHED;
                             hmsw_state_count_[i] = param.count+1;
@@ -320,12 +320,7 @@ namespace aris
                         {
                             if (param.count == hmsw_state_count_[i])
                             {
-                                // ask motor to set new posOffset at home
-                                auto& motion = controller.motionAtAbs(i);
-                                motion.setPosOffset( static_cast<std::int32_t>(
-                                            motion.posOffset() + motion.homeCount() -
-                                            data.motion_raw_data->at(i).feedback_pos
-                                            ));
+                                data.motion_raw_data->operator[](i).cmd = EthercatMotion::SET_HOME_POSITION;
                             }
                         }
                         is_all_hmsw_finished = false;

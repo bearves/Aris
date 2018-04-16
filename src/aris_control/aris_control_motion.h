@@ -30,6 +30,7 @@ namespace aris
                     ENABLE,
                     DISABLE,
                     HOME,
+                    SET_HOME_POSITION,
                     RUN
                 };
                 enum Mode

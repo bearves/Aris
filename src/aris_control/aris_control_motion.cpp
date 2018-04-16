@@ -318,6 +318,112 @@ namespace aris
                     }
                 }
 
+                std::int16_t setHomePos()
+                {
+                    is_fake = false;					
+
+                    if(is_waiting_mode)
+                    {
+                        // wait for 25 counts preparing the mode-switch
+                        // from HOMING to RUNNING
+                        if (waiting_count < 25)
+                        {
+                            std::int32_t current_pos = this->pos();
+
+                            pdrv->writePdo(
+                                    io_mapping_->targetPosition_index, 
+                                    io_mapping_->targetPosition_subindex, 
+                                    current_pos - pos_offset_);
+
+                            /* set velocity and torque to 0*/
+                            pdrv->writePdo(
+                                    io_mapping_->targetVelocity_index, 
+                                    io_mapping_->targetVelocity_subindex, 
+                                    static_cast<std::int32_t>(0));
+                            pdrv->writePdo(
+                                    io_mapping_->targetTorque_index, 
+                                    io_mapping_->targetTorque_subindex, 
+                                    static_cast<std::int16_t>(0));
+
+                            pdrv->writePdo(
+                                    io_mapping_->controlWord_index, 
+                                    io_mapping_->controlWord_subindex,
+                                    static_cast<uint16_t>(0x1F));
+
+                            waiting_count++;
+                            return 1;
+                        }
+                        else{
+                            rt_printf("Home offset position set\n");
+                            return 0;
+                        }
+                    }
+
+                    std::uint16_t statusWord = this->statusWord();
+                    std::uint8_t mode_Read = this->operationMode();
+                    // get current status and op mode
+                    int motorState = (statusWord & 0x000F);
+
+                    if (motorState == 0x0007 && mode_Read != HOMING)
+                    {
+                        // jump out from other modes
+                        pdrv->writePdo(
+                                io_mapping_->controlWord_index, 
+                                io_mapping_->controlWord_subindex,
+                                static_cast<uint16_t>(0x06));
+                        return 1;
+                    }
+                    else if (mode_Read != HOMING) // motorState is not running but the mode have not changed to home mode yet
+                    {
+                        pdrv->writePdo(
+                                io_mapping_->modeOfOperation_index, 
+                                io_mapping_->modeOfOperation_subindex, 
+                                static_cast<std::uint8_t>(HOMING));
+                        return 1;
+                    }
+                    else if (motorState != 0x0007) // mode must have changed but the motor state is not running yet
+                    {
+                        // now enable the motor to the HOMING mode
+                        if (motorState == 0x0003)
+                        {
+                            /*state is ENABLED, now set it to RUNNING*/
+                            pdrv->writePdo(
+                                    io_mapping_->controlWord_index, 
+                                    io_mapping_->controlWord_subindex, 
+                                    static_cast<std::uint16_t>(0x0F));
+                        }
+                        else if (motorState == 0x0001)
+                        {
+                            pdrv->writePdo(
+                                    io_mapping_->controlWord_index, 
+                                    io_mapping_->controlWord_subindex, 
+                                    static_cast<std::uint16_t>(0x07));
+                        }
+                        else if (motorState == 0x0000)
+                        {
+                            pdrv->writePdo(
+                                    io_mapping_->controlWord_index, 
+                                    io_mapping_->controlWord_subindex, 
+                                    static_cast<std::uint16_t>(0x06));
+                        }
+
+                        pdrv->writePdo(
+                                io_mapping_->modeOfOperation_index, 
+                                io_mapping_->modeOfOperation_subindex, 
+                                static_cast<std::uint8_t>(HOMING));
+
+                        home_period = 0;
+                        return 1;
+                    }
+                    else
+                    {
+                        /*motor is in running state and in homing mode*/
+                        waiting_count = 0;
+                        is_waiting_mode = true;
+                        return 1;
+                    }
+                }
+
                 std::int16_t runPos(const std::int32_t pos)
                 {
                     if (is_fake)
@@ -465,7 +571,7 @@ namespace aris
                 void writeHomeCountToDevice(std::int32_t home_count){
                     pdrv->configSdo(
                             io_mapping_->home_count_sdo_index, 
-                            static_cast<std::int32_t>(home_count));
+                            static_cast<std::int32_t>(-home_count));
                 };
 
                 double input2count_;
@@ -555,6 +661,9 @@ namespace aris
                     return;
                 case HOME:
                     data.ret = imp_->home();
+                    return;
+                case SET_HOME_POSITION: // used only when Homemode=35
+                    data.ret = imp_->setHomePos();
                     return;
                 case RUN:
                     switch (data.mode)
@@ -863,11 +972,11 @@ namespace aris
                 {
                     imp_->force_sensor_vec_.push_back(addSlave<EthercatForceSensor>(std::ref(*slaveTypeMap.at(type))));
                 }
-				else if (type == "RuiCongCombo")
-				{
+                else if (type == "RuiCongCombo")
+                {
 					imp_->force_sensor_rcc_vec_.push_back(addSlave<EthercatForceSensorRuiCongCombo>(std::ref(*slaveTypeMap.at(type))));
                     printf("Adding FSR %s\n", type.c_str());
-				}
+                }
                 else if (type == "MeHeavyEIMU")
                 {
                     imp_->imu_vec_.push_back(addSlave<EthercatIMU>(std::ref(*slaveTypeMap.at(type)), this->getControlFreq()));
@@ -926,8 +1035,8 @@ namespace aris
             imp_->motion_rawdata_.resize(imp_->motion_vec_.size());
             imp_->last_motion_rawdata_.resize(imp_->motion_vec_.size());
             imp_->force_sensor_data_.resize(imp_->force_sensor_vec_.size());
-			imp_->force_sensor_rcc_data_.resize(imp_->force_sensor_rcc_vec_.size());
-			imp_->imu_data_.resize(imp_->imu_vec_.size());
+            imp_->force_sensor_rcc_data_.resize(imp_->force_sensor_rcc_vec_.size());
+            imp_->imu_data_.resize(imp_->imu_vec_.size());
 
             imp_->record_pipe_.reset(new Pipe<std::vector<EthercatMotion::RawData> >(true, imp_->motion_vec_.size()));
         }
