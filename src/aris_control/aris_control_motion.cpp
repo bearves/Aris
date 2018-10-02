@@ -628,97 +628,120 @@ namespace aris
             this->readPdo(0, 5, value);
             data.Mz = static_cast<double>(value) * torque_ratio_;
         }
+
+        auto EthercatForceSensorZJ::readData(EthercatForceSensorZJ::DataZJ &data)->void
+        {
+            std::int32_t value = 0;
+            float* pdo_result=NULL;
+
+            for(std::size_t i = 0; i < data.fsr_data.size(); i++)
+            {
+                for (std::size_t j = 0; j < 6; j++)
+                {
+		    this->readPdo(i+1, j, value);
+		    pdo_result = (float*)&value;
+		    data.fsr_data.at(i).fce[j] = *pdo_result;
+                }
+            }
+        }
+
+        auto EthercatForceSensorZJ::setZero(unsigned char zero_bit) -> void
+        {
+            this->writePdo(0, 0, zero_bit);
+            if (zero_bit != 0)
+                rt_printf("set zero as %d\n", zero_bit);
+        }
         
-		auto EthercatForceSensorRuiCongCombo::readData(RuiCongComboData &data)->void
+	auto EthercatForceSensorRuiCongCombo::readData(RuiCongComboData &data)->void
+	{
+
+		int32_t value=0;
+		float* pdo_result=NULL;
+		for( std::size_t i = 0; i < data.force.size(); i++)
 		{
-			
-			int32_t value=0;
-			float* pdo_result=NULL;
-			for( std::size_t i = 0; i < data.force.size(); i++)
+			// read 6 element in one loop
+			this->readPdo(i, 0, value);
+			pdo_result = (float*)&value;
+			raw_data_.force.at(i).Fx = *pdo_result * force_ratio_;
+
+			this->readPdo(i, 1, value);
+			pdo_result = (float*)&value;
+			raw_data_.force.at(i).Fy = *pdo_result * force_ratio_;
+
+			this->readPdo(i, 2, value);
+			pdo_result = (float*)&value;
+			raw_data_.force.at(i).Fz = *pdo_result * force_ratio_;
+
+			this->readPdo(i, 3, value);
+			pdo_result = (float*)&value;
+			raw_data_.force.at(i).Mx = *pdo_result * torque_ratio_;
+
+			this->readPdo(i, 4, value);
+			pdo_result = (float*)&value;
+			raw_data_.force.at(i).My = *pdo_result * torque_ratio_;
+
+			this->readPdo(i, 5, value);
+			pdo_result = (float*)&value;
+			raw_data_.force.at(i).Mz = *pdo_result * torque_ratio_;
+
+			std::uint8_t zero_pdo_value;
+
+			if (this->zeroing_count_left.at(i) == 1)
 			{
-				// read 6 element in one loop
-				this->readPdo(i, 0, value);
-				pdo_result = (float*)&value;
-				raw_data_.force.at(i).Fx = *pdo_result * force_ratio_;
-				
-				this->readPdo(i, 1, value);
-				pdo_result = (float*)&value;
-				raw_data_.force.at(i).Fy = *pdo_result * force_ratio_;
+				zero_pdo_value = 1;
+				this->writePdo(CHANNEL_COUNTS+1, i, zero_pdo_value);
+				this->zeroing_count_left.at(i)--;
+			}
+			else if (this->zeroing_count_left.at(i) == 0)
+			{
+				zero_pdo_value = 0;
+				this->writePdo(CHANNEL_COUNTS+1, i, zero_pdo_value);
+				this->zeroing_count_left.at(i)--;
+				rt_printf("zeroing sensor %d\n",i);
+			}
+			else
+			{
+				zero_pdo_value = 0;
+				this->writePdo(CHANNEL_COUNTS+1, i, zero_pdo_value);
+			}
 
-				this->readPdo(i, 2, value);
-				pdo_result = (float*)&value;
-				raw_data_.force.at(i).Fz = *pdo_result * force_ratio_;
+			data.force.at(i).Fx = raw_data_.force.at(i).Fx;
+			data.force.at(i).Fy = raw_data_.force.at(i).Fy;
+			data.force.at(i).Fz = raw_data_.force.at(i).Fz;
+			data.force.at(i).Mx = raw_data_.force.at(i).Mx;
+			data.force.at(i).My = raw_data_.force.at(i).My;
+			data.force.at(i).Mz = raw_data_.force.at(i).Mz;
 
-				this->readPdo(i, 3, value);
-				pdo_result = (float*)&value;
-				raw_data_.force.at(i).Mx = *pdo_result * torque_ratio_;
+		}
+	}
 
-				this->readPdo(i, 4, value);
-				pdo_result = (float*)&value;
-				raw_data_.force.at(i).My = *pdo_result * torque_ratio_;
+	auto EthercatForceSensorRuiCongCombo::setRatio(double f_ratio, double t_ratio)->void
+	{
+		this->force_ratio_ = f_ratio;
+		this->torque_ratio_ = t_ratio;
+	}
 
-				this->readPdo(i, 5, value);
-				pdo_result = (float*)&value;
-				raw_data_.force.at(i).Mz = *pdo_result * torque_ratio_;
+	auto EthercatForceSensorRuiCongCombo::requireZeroing(int sensor_id)->void
+	{
+		if (sensor_id >= CHANNEL_COUNTS)  // check if this device have such sensor channel
+			return;
 
-				std::uint8_t zero_pdo_value;
-
-				if (this->zeroing_count_left.at(i) == 1)
-				{
-					zero_pdo_value = 1;
-					this->writePdo(CHANNEL_COUNTS+1, i, zero_pdo_value);
-					this->zeroing_count_left.at(i)--;
-				}
-				else if (this->zeroing_count_left.at(i) == 0)
-				{
-					zero_pdo_value = 0;
-					this->writePdo(CHANNEL_COUNTS+1, i, zero_pdo_value);
-					this->zeroing_count_left.at(i)--;
-					rt_printf("zeroing sensor %d\n",i);
-				}
-				else
-				{
-					zero_pdo_value = 0;
-					this->writePdo(CHANNEL_COUNTS+1, i, zero_pdo_value);
-				}
-
-				data.force.at(i).Fx = raw_data_.force.at(i).Fx;
-				data.force.at(i).Fy = raw_data_.force.at(i).Fy;
-				data.force.at(i).Fz = raw_data_.force.at(i).Fz;
-				data.force.at(i).Mx = raw_data_.force.at(i).Mx;
-				data.force.at(i).My = raw_data_.force.at(i).My;
-				data.force.at(i).Mz = raw_data_.force.at(i).Mz;
-
+		if (this->zeroing_count_left.at(sensor_id) < 0)//this means it is not in a zeroing process
+		{
+			this->zeroing_count_left.at(sensor_id) = this->ZEROING_COUNT;
+			for (int i = 0; i < 6; i++)
+			{
+				this->sum_data_.force.at(i).Fx = 0.0;
+				this->sum_data_.force.at(i).Fy = 0.0;
+				this->sum_data_.force.at(i).Fz = 0.0;
+				this->sum_data_.force.at(i).Mx = 0.0;
+				this->sum_data_.force.at(i).My = 0.0;
+				this->sum_data_.force.at(i).Mz = 0.0;
 			}
 		}
+		return ;
 
-		auto EthercatForceSensorRuiCongCombo::setRatio(double f_ratio, double t_ratio)->void
-		{
-			this->force_ratio_ = f_ratio;
-			this->torque_ratio_ = t_ratio;
-		}
-
-		auto EthercatForceSensorRuiCongCombo::requireZeroing(int sensor_id)->void
-		{
-            if (sensor_id >= CHANNEL_COUNTS)  // check if this device have such sensor channel
-                return;
-			
-			if (this->zeroing_count_left.at(sensor_id) < 0)//this means it is not in a zeroing process
-			{
-				this->zeroing_count_left.at(sensor_id) = this->ZEROING_COUNT;
-				for (int i = 0; i < 6; i++)
-				{
-					this->sum_data_.force.at(i).Fx = 0.0;
-					this->sum_data_.force.at(i).Fy = 0.0;
-					this->sum_data_.force.at(i).Fz = 0.0;
-					this->sum_data_.force.at(i).Mx = 0.0;
-					this->sum_data_.force.at(i).My = 0.0;
-					this->sum_data_.force.at(i).Mz = 0.0;
-				}
-			}
-			return ;
-
- 		}
+	}
 
         auto EthercatIMU::readData(Data &data)->void
         {
@@ -769,9 +792,12 @@ namespace aris
 
             std::vector<EthercatForceSensor *> force_sensor_vec_;
             std::vector<EthercatForceSensor::Data> force_sensor_data_;
+
+            std::vector<EthercatForceSensorZJ *> fzj_vec_;
+            std::vector<EthercatForceSensorZJ::DataZJ> fzj_data_;
             
-			std::vector<EthercatForceSensorRuiCongCombo *> force_sensor_rcc_vec_;
-			std::vector<EthercatForceSensorRuiCongCombo::RuiCongComboData> force_sensor_rcc_data_;
+	    std::vector<EthercatForceSensorRuiCongCombo *> force_sensor_rcc_vec_;
+	    std::vector<EthercatForceSensorRuiCongCombo::RuiCongComboData> force_sensor_rcc_data_;
 
             std::vector<EthercatIMU *> imu_vec_;
             std::vector<EthercatIMU::Data> imu_data_;
@@ -803,8 +829,9 @@ namespace aris
             imp_->driver_vec_.clear();
             imp_->motion_vec_.clear();
             imp_->force_sensor_vec_.clear();
- 			imp_->force_sensor_rcc_vec_.clear();
- 			imp_->imu_vec_.clear();
+            imp_->fzj_vec_.clear();
+ 	    imp_->force_sensor_rcc_vec_.clear();
+ 	    imp_->imu_vec_.clear();
 
             auto slave_xml = xml_ele.FirstChildElement("Slave");
             printf("Adding slaves\n");
@@ -820,11 +847,16 @@ namespace aris
                 {
                     imp_->force_sensor_vec_.push_back(addSlave<EthercatForceSensor>(std::ref(*slaveTypeMap.at(type))));
                 }
-				else if (type == "RuiCongCombo")
-				{
-					imp_->force_sensor_rcc_vec_.push_back(addSlave<EthercatForceSensorRuiCongCombo>(std::ref(*slaveTypeMap.at(type))));
+                else if (type == "Zhiji")
+                {
+                    imp_->fzj_vec_.push_back(addSlave<EthercatForceSensorZJ>(std::ref(*slaveTypeMap.at(type))));
                     printf("Adding FSR %s\n", type.c_str());
-				}
+                }
+		else if (type == "RuiCongCombo")
+		{
+		    imp_->force_sensor_rcc_vec_.push_back(addSlave<EthercatForceSensorRuiCongCombo>(std::ref(*slaveTypeMap.at(type))));
+                    printf("Adding FSR %s\n", type.c_str());
+		}
                 else if (type == "MeHeavyEIMU")
                 {
                     imp_->imu_vec_.push_back(addSlave<EthercatIMU>(std::ref(*slaveTypeMap.at(type))));
@@ -883,8 +915,9 @@ namespace aris
             imp_->motion_rawdata_.resize(imp_->motion_vec_.size());
             imp_->last_motion_rawdata_.resize(imp_->motion_vec_.size());
             imp_->force_sensor_data_.resize(imp_->force_sensor_vec_.size());
-			imp_->force_sensor_rcc_data_.resize(imp_->force_sensor_rcc_vec_.size());
-			imp_->imu_data_.resize(imp_->imu_vec_.size());
+            imp_->fzj_data_.resize(imp_->fzj_vec_.size());
+	    imp_->force_sensor_rcc_data_.resize(imp_->force_sensor_rcc_vec_.size());
+	    imp_->imu_data_.resize(imp_->imu_vec_.size());
 
             imp_->record_pipe_.reset(new Pipe<std::vector<EthercatMotion::RawData> >(true, imp_->motion_vec_.size()));
         }
@@ -955,8 +988,10 @@ namespace aris
         auto EthercatController::motionAtPhy(int i)->EthercatMotion & { return *imp_->motion_vec_.at(i); };
         auto EthercatController::forceSensorNum()->std::size_t { return imp_->force_sensor_vec_.size(); };
         auto EthercatController::forceSensorAt(int i)->EthercatForceSensor & { return *imp_->force_sensor_vec_.at(i); };
-		auto EthercatController::ruicongComboNum()->std::size_t { return imp_->force_sensor_rcc_vec_.size(); };
-		auto EthercatController::ruicongComboAt(int i)->EthercatForceSensorRuiCongCombo & { return *imp_->force_sensor_rcc_vec_.at(i); };
+	auto EthercatController::fzjNum()->std::size_t { return imp_->fzj_vec_.size(); };
+	auto EthercatController::fzjAt(int i)->EthercatForceSensorZJ & { return *imp_->fzj_vec_.at(i); };
+	auto EthercatController::ruicongComboNum()->std::size_t { return imp_->force_sensor_rcc_vec_.size(); };
+	auto EthercatController::ruicongComboAt(int i)->EthercatForceSensorRuiCongCombo & { return *imp_->force_sensor_rcc_vec_.at(i); };
         auto EthercatController::imuNum()->std::size_t { return imp_->imu_vec_.size(); };
         auto EthercatController::imuAt(int i)->EthercatIMU & { return *imp_->imu_vec_.at(i); };
 
@@ -965,14 +1000,15 @@ namespace aris
         auto EthercatController::controlStrategy()->void
         {
             /*构造传入strategy的参数*/
-			Data data{ 
-                &imp_->last_motion_rawdata_, 
-                &imp_->motion_rawdata_, 
-                &imp_->force_sensor_data_, 
-                &imp_->force_sensor_rcc_data_, 
-                &imp_->imu_data_,
-                nullptr, 
-                nullptr };
+	    Data data{ 
+		    &imp_->last_motion_rawdata_, 
+		    &imp_->motion_rawdata_, 
+		    &imp_->force_sensor_data_, 
+		    &imp_->force_sensor_rcc_data_, 
+		    &imp_->fzj_data_,
+		    &imp_->imu_data_,
+		    nullptr, 
+		    nullptr };
 
             /*收取消息*/
             if (this->msgPipe().recvInRT(aris::core::MsgRT::instance[0]) > 0)
@@ -981,35 +1017,42 @@ namespace aris
             };
 
             /*读取反馈*/
-			if (imp_->motion_vec_.size() > 0)
-            {
-				for (std::size_t i = 0; i < imp_->motion_vec_.size(); ++i)
-				{
-					motionAtAbs(i).readFeedback(imp_->motion_rawdata_[i]);
-				}
-            }
+	    if (imp_->motion_vec_.size() > 0)
+	    {
+		    for (std::size_t i = 0; i < imp_->motion_vec_.size(); ++i)
+		    {
+			    motionAtAbs(i).readFeedback(imp_->motion_rawdata_[i]);
+		    }
+	    }
             
-			if (imp_->force_sensor_vec_.size() > 0)
- 			{
-				for (std::size_t i = 0; i < imp_->force_sensor_vec_.size(); ++i)
-				{
-					imp_->force_sensor_vec_.at(i)->readData(imp_->force_sensor_data_[i]);
-				}
- 			}
-			if (imp_->force_sensor_rcc_vec_.size() > 0)
-			{
-				for (std::size_t i = 0; i < imp_->force_sensor_rcc_vec_.size(); ++i)
-				{
-					imp_->force_sensor_rcc_vec_.at(i)->readData(imp_->force_sensor_rcc_data_[i]);
-				}
-			}
-			if (imp_->imu_vec_.size() > 0)
- 			{
-				for (std::size_t i = 0; i < imp_->imu_vec_.size(); ++i)
-				{
-					imp_->imu_vec_.at(i)->readData(imp_->imu_data_[i]);
-				}
- 			}
+	    if (imp_->force_sensor_vec_.size() > 0)
+	    {
+		    for (std::size_t i = 0; i < imp_->force_sensor_vec_.size(); ++i)
+		    {
+			    imp_->force_sensor_vec_.at(i)->readData(imp_->force_sensor_data_[i]);
+		    }
+	    }
+	    if (imp_->fzj_vec_.size() > 0)
+	    {
+		    for (std::size_t i = 0; i < imp_->fzj_vec_.size(); ++i)
+		    {
+			    imp_->fzj_vec_.at(i)->readData(imp_->fzj_data_[i]);
+		    }
+	    }
+	    if (imp_->force_sensor_rcc_vec_.size() > 0)
+	    {
+		    for (std::size_t i = 0; i < imp_->force_sensor_rcc_vec_.size(); ++i)
+		    {
+			    imp_->force_sensor_rcc_vec_.at(i)->readData(imp_->force_sensor_rcc_data_[i]);
+		    }
+	    }
+	    if (imp_->imu_vec_.size() > 0)
+	    {
+		    for (std::size_t i = 0; i < imp_->imu_vec_.size(); ++i)
+		    {
+			    imp_->imu_vec_.at(i)->readData(imp_->imu_data_[i]);
+		    }
+	    }
 
             /*执行自定义的控制策略*/
             if (imp_->strategy_)
@@ -1025,15 +1068,32 @@ namespace aris
                 imp_->last_motion_rawdata_[i] = imp_->motion_rawdata_[i];
             }
 
-			if (imp_->force_sensor_rcc_vec_.size() > 0)
-			{
-                for (std::size_t i = 0; i < imp_->force_sensor_rcc_data_.at(0).force.size(); i++)
+	    if (imp_->force_sensor_rcc_vec_.size() > 0)
+	    {
+		    for (std::size_t i = 0; i < imp_->force_sensor_rcc_data_.at(0).force.size(); i++)
+		    {
+			    if (imp_->force_sensor_rcc_data_.at(0).isZeroingRequested.at(i))
+			    {
+				    imp_->force_sensor_rcc_vec_.at(0)->requireZeroing(i);
+				    imp_->force_sensor_rcc_data_.at(0).isZeroingRequested.at(i) = false;
+			    }
+		    }
+	    }
+
+	    if (imp_->fzj_vec_.size() > 0)
+            {
+                for (std::size_t i = 0; i < imp_->fzj_vec_.size(); i++)
                 {
-                    if (imp_->force_sensor_rcc_data_.at(0).isZeroingRequested.at(i))
-                    {
-                        imp_->force_sensor_rcc_vec_.at(0)->requireZeroing(i);
-                        imp_->force_sensor_rcc_data_.at(0).isZeroingRequested.at(i) = false;
-                    }
+                   unsigned char zero_bit = 0; 
+                   for (std::size_t j = 0; j < imp_->fzj_data_.at(i).fsr_data.size(); j++)
+                   {
+                       if (imp_->fzj_data_.at(i).isZeroingRequested.at(j))
+                       {
+                           zero_bit |= 1 << j;
+                           imp_->fzj_data_.at(i).isZeroingRequested.at(j) = false;
+                       }
+                   }
+                   imp_->fzj_vec_.at(i)->setZero(zero_bit);
                 }
             }
 
@@ -1049,7 +1109,7 @@ namespace aris
                 this->msgPipe().sendToNrt(*data.msg_send);
             }
 
-            if (imp_->control_count_ % 100 == 0)
+            if (imp_->control_count_ % 200 == 0)
             {
             //    motionAtPhy(0).printStatus();
             //    rt_printf("Current motor cmd: %d\n", imp_->motion_rawdata_[0].cmd);
@@ -1063,15 +1123,16 @@ namespace aris
                             imp_->imu_data_[0].euler[2]/3.14159265358979*180);
                 }
 
-                if (imp_->force_sensor_rcc_vec_.size() > 0)
+
+                if (imp_->fzj_vec_.size() > 0)
                 {
                     rt_printf("%f\t%f\t%f\t%f\t%f\t%f\n",
-                            imp_->force_sensor_rcc_data_[0].force[0].Fx,
-                            imp_->force_sensor_rcc_data_[0].force[0].Fy,
-                            imp_->force_sensor_rcc_data_[0].force[0].Fz,
-                            imp_->force_sensor_rcc_data_[0].force[0].Mx,
-                            imp_->force_sensor_rcc_data_[0].force[0].My,
-                            imp_->force_sensor_rcc_data_[0].force[0].Mz);
+                            imp_->fzj_data_[0].fsr_data[0].Fx,
+                            imp_->fzj_data_[0].fsr_data[0].Fy,
+                            imp_->fzj_data_[0].fsr_data[0].Fz,
+                            imp_->fzj_data_[0].fsr_data[0].Mx,
+                            imp_->fzj_data_[0].fsr_data[0].My,
+                            imp_->fzj_data_[0].fsr_data[0].Mz);
                 }
             }
 

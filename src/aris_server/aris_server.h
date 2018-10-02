@@ -22,15 +22,15 @@ namespace aris
 		//for enable, disable, and home
 		struct BasicFunctionParam :aris::dynamic::PlanParamBase
 		{
-        public:
+		public:
 			bool active_motor[MAX_MOTOR_NUM];
 			bool active_channel[MAX_FSR_CHANNEL_NUM];
 
 			BasicFunctionParam() 
-            { 
-                std::fill(active_motor, active_motor + MAX_MOTOR_NUM, true);
-                std::fill(active_channel, active_channel + MAX_FSR_CHANNEL_NUM, false);
-            };
+			{ 
+				std::fill(active_motor, active_motor + MAX_MOTOR_NUM, true);
+				std::fill(active_channel, active_channel + MAX_FSR_CHANNEL_NUM, false);
+			};
 		};
 
 		//for all ordinary gaits
@@ -39,10 +39,11 @@ namespace aris
 			bool if_check_pos_min{ true };
 			bool if_check_pos_max{ true };
 			bool if_check_pos_continuous{ true };
-            std::int32_t gait_id;
-//            const aris::sensor::ImuData *imu_data;
+			std::int32_t gait_id;
+			//            const aris::sensor::ImuData *imu_data;
 			const std::vector<aris::control::EthercatForceSensor::Data> *force_data;
 			std::vector<aris::control::EthercatForceSensorRuiCongCombo::RuiCongComboData> *ruicong_data;
+                        std::vector<aris::control::EthercatForceSensorZJ::DataZJ> *fzj_data;
 			const std::vector<aris::control::EthercatIMU::Data> *imu_data;
 			const std::vector<aris::control::EthercatMotion::RawData> *motion_raw_data;
 			const std::vector<aris::control::EthercatMotion::RawData> *last_motion_raw_data;

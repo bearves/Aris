@@ -427,6 +427,7 @@ namespace aris
                 auto home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto fake_home(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
                 auto zero_ruicong(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
+                auto zero_zhiji(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int;
 
             private:
                 enum RobotCmdID
@@ -437,6 +438,7 @@ namespace aris
                     RUN_GAIT,
                     FAKE_HOME,
                     ZERO_RUICONG,
+                    ZERO_ZHIJI,
 
                     ROBOT_CMD_COUNT,
                     CLEAR_CMD_QUEUE
@@ -503,6 +505,15 @@ namespace aris
                     }
                 };
 
+                ParseFunc parse_zero_fzj{ [this](const std::string &cmd, const std::map<std::string, std::string> &params, aris::core::Msg &msg)
+                    {
+                        BasicFunctionParam param;
+                        param.cmd_type = Imp::RobotCmdID::ZERO_ZHIJI;
+                        std::fill_n(param.active_motor, this->model_->motionPool().size(), true);
+                        std::fill_n(param.active_channel, MAX_FSR_CHANNEL_NUM, true);
+                        msg.copyStruct(param);
+                    }
+                };
 
                 // socket //
                 aris::core::Socket server_socket_;
@@ -622,11 +633,16 @@ namespace aris
                 if (gait_func)throw std::runtime_error("you can not set plan_func for \"fake_home\" command");
                 this->parse_home_func_ = parse_func;
             }
-			else if (cmd_name == "zrc")
-			{
-				if (gait_func)throw std::runtime_error("you can not set plan_func for \"zrc\" command");
-				this->parse_zero_ruicong = parse_func;
-			}
+	    else if (cmd_name == "zrc")
+	    {
+		if (gait_func)throw std::runtime_error("you can not set plan_func for \"zrc\" command");
+		this->parse_zero_ruicong = parse_func;
+	    }
+            else if (cmd_name == "zf")
+            {
+		if (gait_func)throw std::runtime_error("you can not set plan_func for \"zf\" command");
+		this->parse_zero_fzj = parse_func;
+            }
             else
             {
                 if (cmd_id_map_.find(cmd_name) != cmd_id_map_.end())
@@ -923,12 +939,18 @@ namespace aris
                 if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for fake_home");
                 reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::FAKE_HOME;
             }
-			else if (cmd == "zrc")
-			{
-				parse_zero_ruicong(cmd, params, cmd_msg);
-				if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for fake_home");
-				reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::ZERO_RUICONG;
-			}
+	    else if (cmd == "zf")
+	    {
+		parse_zero_fzj(cmd, params, cmd_msg);
+		if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for fake_home");
+		reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::ZERO_ZHIJI;
+	    }
+	    else if (cmd == "zrc")
+	    {
+		    parse_zero_ruicong(cmd, params, cmd_msg);
+		    if (cmd_msg.size() != sizeof(BasicFunctionParam))throw std::runtime_error("invalid msg length of parse function for fake_home");
+		    reinterpret_cast<BasicFunctionParam *>(cmd_msg.data())->cmd_type = ControlServer::Imp::ZERO_RUICONG;
+	    }
             else
             {
                 auto cmdPair = this->cmd_id_map_.find(cmd);
@@ -1083,9 +1105,12 @@ namespace aris
                 case RUN_GAIT:
                     ret = run(static_cast<GaitParamBase &>(*param), data);
                     break;
-			    case ZERO_RUICONG:
-				    ret = zero_ruicong(static_cast<BasicFunctionParam &>(*param), data);
-				    break;
+                case ZERO_RUICONG:
+		    ret = zero_ruicong(static_cast<BasicFunctionParam &>(*param), data);
+		    break;
+                case ZERO_ZHIJI:
+		    ret = zero_zhiji(static_cast<BasicFunctionParam &>(*param), data);
+		    break;
                 default:
                     rt_printf("unknown cmd type\n");
                     ret = 0;
@@ -1220,24 +1245,42 @@ namespace aris
 
             return 0;
         };
-        
-		auto ControlServer::Imp::zero_ruicong(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
+
+	auto ControlServer::Imp::zero_zhiji(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
+	{
+	    for (std::size_t i = 0; i < data.fzj_data->at(0).isZeroingRequested.size(); i++)
+	    {
+		if (param.active_channel[i])
 		{
-			for (std::size_t i = 0; i < data.ruicongcombo_data->at(0).isZeroingRequested.size(); i++)
-			{
-				if (param.active_channel[i])
-				{
-					data.ruicongcombo_data->at(0).isZeroingRequested.at(i) = true;
-					rt_printf("zeroing channel: %d\n",i);
-				}
-				else
-				{
-					data.ruicongcombo_data->at(0).isZeroingRequested.at(i) = false;
-					rt_printf("not zeroing channel: %d\n", i);
-				}
-			}
-			return 0;
+			data.fzj_data->at(0).isZeroingRequested.at(i) = true;
+			rt_printf("zeroing channel: %d\n",i);
 		}
+		else
+		{
+			data.fzj_data->at(0).isZeroingRequested.at(i) = false;
+			rt_printf("not zeroing channel: %d\n", i);
+		}
+	    }
+	    return 0;
+	}
+        
+	auto ControlServer::Imp::zero_ruicong(const BasicFunctionParam &param, aris::control::EthercatController::Data &data)->int
+	{
+		for (std::size_t i = 0; i < data.ruicongcombo_data->at(0).isZeroingRequested.size(); i++)
+		{
+			if (param.active_channel[i])
+			{
+				data.ruicongcombo_data->at(0).isZeroingRequested.at(i) = true;
+				rt_printf("zeroing channel: %d\n",i);
+			}
+			else
+			{
+				data.ruicongcombo_data->at(0).isZeroingRequested.at(i) = false;
+				rt_printf("not zeroing channel: %d\n", i);
+			}
+		}
+		return 0;
+	}
 
         auto ControlServer::Imp::run(GaitParamBase &param, aris::control::EthercatController::Data &data)->int
         {
@@ -1252,6 +1295,7 @@ namespace aris
             param.force_data = data.force_sensor_data;
             param.motion_raw_data = data.motion_raw_data;
             param.ruicong_data = data.ruicongcombo_data;
+            param.fzj_data = data.fzj_data;
             param.imu_data = data.imu_data;
             param.last_motion_raw_data = data.last_motion_raw_data;
             param.motion_feedback_pos = &this->motion_pos_;
