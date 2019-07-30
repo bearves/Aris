@@ -115,7 +115,15 @@ namespace aris
                     {
 
                         /*state is RUNNING, now change it to desired mode*/
-                        if (modeRead != mode)
+                        if ((mode == POSITION) && (modeRead != VELOCITY))
+                        {
+                            pdrv->writePdo(
+                                    io_mapping_->modeOfOperation_index, 
+                                    io_mapping_->modeOfOperation_subindex, 
+                                    static_cast<std::uint8_t>(VELOCITY));
+                            return 1;
+                        }
+                        else if ((mode != POSITION) && (modeRead != mode))
                         {
                             pdrv->writePdo(
                                     io_mapping_->modeOfOperation_index, 
@@ -125,6 +133,16 @@ namespace aris
                         }
 
                         /*successfull, but still need to wait for 10 more cycles to make it stable*/
+                        switch (mode)
+                        {
+                        case POSITION:
+                        case VELOCITY:
+				pdrv->writePdo( io_mapping_->targetVelocity_index, 
+						io_mapping_->targetVelocity_subindex,
+						static_cast<std::int32_t>(0));
+                                break;
+                        }
+
                         if (++enable_period >= 10)
                         {	
                             running_mode = mode;
@@ -328,18 +346,27 @@ namespace aris
 
                     std::uint8_t mode_Read = this->operationMode();
 
-                    if (motorState != 0x0007 || mode_Read != POSITION)
+                    if (motorState != 0x0007 || mode_Read != VELOCITY)
                     {
                         return -1;
                     }
                     else
                     {
                         std::int32_t current_pos = this->pos();
+                        std::int32_t desired_vel = static_cast<std::int32_t>((10) * (pos - current_pos));
+
+                        desired_vel = std::max(desired_vel, -max_vel_count_);
+                        desired_vel = std::min(desired_vel,  max_vel_count_);
 
                         pdrv->writePdo(
                                 io_mapping_->targetPosition_index, 
                                 io_mapping_->targetPosition_subindex, 
                                 pos - pos_offset_);
+
+                        pdrv->writePdo(
+                                io_mapping_->targetVelocity_index, 
+                                io_mapping_->targetVelocity_subindex,
+                                desired_vel);
 
                         return 0;
                     }
