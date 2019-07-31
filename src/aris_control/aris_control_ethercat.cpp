@@ -334,7 +334,7 @@ namespace aris
             if (ecrt_domain_reg_pdo_entry_list(this->domain_, this->ec_pdo_entry_reg_vec_.data()))throw std::runtime_error("failed domain_reg_pdo_entry");
 
             // Configure the slave's discrete clock			
-            if (this->distributed_clock_)ecrt_slave_config_dc(this->ec_slave_config_, *this->distributed_clock_.get(), 10000000, 0, 0, 0);
+            if (this->distributed_clock_)ecrt_slave_config_dc(this->ec_slave_config_, *this->distributed_clock_.get(), 1000000, 0, 0, 0);
 #endif
         };
         template<typename DataType>

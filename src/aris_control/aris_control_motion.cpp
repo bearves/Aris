@@ -352,8 +352,9 @@ namespace aris
                     }
                     else
                     {
+                        std::int32_t kp = 40;
                         std::int32_t current_pos = this->pos();
-                        std::int32_t desired_vel = static_cast<std::int32_t>((10) * (pos - current_pos));
+                        std::int32_t desired_vel = static_cast<std::int32_t>(kp * (pos - current_pos));
 
                         desired_vel = std::max(desired_vel, -max_vel_count_);
                         desired_vel = std::min(desired_vel,  max_vel_count_);
